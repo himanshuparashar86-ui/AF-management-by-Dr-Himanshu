@@ -1,14 +1,14 @@
 # AF Management by Dr Himanshu — Heartline Healthcare LLP
 
-Free mobile-first PWA prototype. No paid API, subscription or external JavaScript dependency.
+Free mobile-first PWA prototype (v0.2). No paid API, subscription or external JavaScript dependency.
 
 ## Run locally
 Serve this folder over localhost or HTTPS (service workers require a secure context). Example: `python -m http.server 8000`, then open `http://localhost:8000`.
 
 ## Included
 - Staff/doctor workspace selection and patient intake
-- AF duration, vitals, ECG and clinical history form
-- Basic CHA2DS2-VA and CHA2DS2-VASc calculations
+- AF duration, vitals, ECG and clinical history form; duration labels display in plain language
+- CHA₂DS₂-VA and CHA₂DS₂-VASc calculations with age points derived automatically from entered age and the female-sex point derived automatically from the sex field
 - Decision-support flags for instability, suspected pre-excitation, wide QRS, prolonged/unknown AF duration, reduced LVEF, bleeding and valvular disease
 - JSON export/import for WhatsApp file handover
 - Doctor approval, staff correction request and UI-level lock
