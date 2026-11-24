@@ -1,54 +1,57 @@
 # AF Management by Dr Himanshu — Heartline Healthcare LLP
-
-Free mobile-first PWA prototype (v0.7). No paid API, subscription or external JavaScript dependency.
-
-## Run locally
-Serve this folder over localhost or HTTPS (service workers require a secure context). Example: `python -m http.server 8000`, then open `http://localhost:8000`.
+Free mobile-first PWA prototype (v1.0).
 
 ## Included
-- Automatic vital-sign screening from SBP, DBP and SpO₂ with red-flag / caution / no-trigger states
-- Bedside clinical instability checkboxes retained for perfusion, altered consciousness, ischemia and pulmonary oedema because these cannot be inferred from BP and SpO₂ alone
+- Staff and doctor workspaces; patient entry and WhatsApp JSON handover
+- Human-readable internal record IDs
+- Automated CHA₂DS₂-VA / CHA₂DS₂-VASc and vital-sign screen
+- Doctor-only cardioversion decision pathway using selectable ESC 2024 or ACC/AHA 2023 cardioversion framework
+- Cardioversion energy: use the specific defibrillator manufacturer's recommendation and hospital protocol; ESC 2024 does not specify one universal joule setting
+- Long-term oral anticoagulation decision support based on selected guideline
+- Cockcroft–Gault CrCl calculator from age, sex, weight and serum creatinine
+- Optional doctor-selected anticoagulant dose reference for apixaban, rivaroxaban, edoxaban and dabigatran; warfarin remains INR-guided
+- Doctor review save, treatment approval, correction request, PDF/print and JSON import/export
+- Clinical references and jurisdiction notes in `CLINICAL_REFERENCES.md`
 
-- Visible, read-only age-band and female-sex score components auto-filled from patient age and sex
-
-- Staff/doctor workspace selection and patient intake
-- AF duration, vitals, ECG and clinical history form; duration labels display in plain language
-- CHA₂DS₂-VA and CHA₂DS₂-VASc calculations with age points derived automatically from entered age and the female-sex point derived automatically from the sex field
-- Decision-support flags for instability, suspected pre-excitation, wide QRS, prolonged/unknown AF duration, reduced LVEF, bleeding and valvular disease
-- JSON export/import for WhatsApp file handover
-- Doctor approval, staff correction request and UI-level lock
-- Browser print / Save as PDF
-- PWA manifest and offline app-shell caching
+## Running
+Serve the repository root over HTTPS (GitHub Pages) or localhost. Open the site and install it as a PWA if desired.
 
 ## Critical limitations
-This is a prototype, not a production clinical record system. There is **no live synchronization**: records remain in the current browser's local storage and are transferred by file. Role selection is not secure authentication. The approval lock is not tamper-proof. Export files and PDFs are not encrypted. Do not use real patient-identifiable information until your organisation approves privacy, security, consent, retention and device policies. GitHub is for source code only; never commit patient data.
+- This is a clinical decision-support prototype, not a validated medical device or production EHR.
+- App role selection is not authentication. The current record storage is local browser storage and does not provide multi-device synchronization.
+- JSON files and print/PDF outputs are not encrypted. Do not store or share identifiable patient data until the organisation approves suitable authentication, access controls, encryption, consent, retention, audit, backup and security policies.
+- Doctor decision inputs are not a substitute for bedside assessment. Cardioversion recommendation requires the clinician to explicitly document whether instability is attributable to AF.
+- Initial 200 J synchronized biphasic AF energy is shown as a 2025 AHA reference only; confirm the actual defibrillator waveform/device, local emergency protocol and operator competency.
+- Anticoagulation score thresholds are presented as ESC 2024 or ACC/AHA 2023 pathways. Do not mix the CHA₂DS₂-VA and CHA₂DS₂-VASc thresholds.
+- Cockcroft–Gault uses entered weight and serum creatinine in mg/dL. Body-composition extremes, unstable renal function, fluid overload, pregnancy, dialysis, liver disease and drug interactions require clinician/pharmacist review.
+- Drug doses shown are reference doses based on US FDA labels only. They may differ from locally approved Indian product information. Verify the exact brand/generic Indian prescribing information, contraindications, interactions and renal/age/weight criteria before prescribing. The app does not select a drug or create a prescription.
+- Dabigatran, apixaban, rivaroxaban and edoxaban labels differ by jurisdiction. The dose module is a prompt for review, not an automatic prescribing calculator.
+- A bleeding-history flag blocks dose display pending clinical review; it does not automatically mean anticoagulation must be withheld.
+- No antibiotics are recommended from CHA₂DS₂ scores. Infection needs a separate diagnosis.
 
-Clinical algorithms are incomplete decision-support prompts, not prescriptions. Score thresholds, HAS-BLED, renal dose criteria, anticoagulant selection, drug calculators and local protocols require clinician/pharmacy validation. The duration text distinguishes ESC 2024 >24h and ACC/AHA 2023 48h frameworks; verify current guideline details before use.
+## v1.0 doctor workflow
+Doctor Mode now has a structured decision panel with:
+- Explicit cardioversion pathway, including a separate clinician confirmation for AF-attributable instability.
+- A synchronized biphasic initial energy reference for emergency AF cardioversion.
+- One guideline only: 2024 ESC AF guideline pathway; no AHA/ACC alternative shown.
+- Long-term oral anticoagulation recommendation separate from short-term/periprocedural parenteral anticoagulation.
+- Cockcroft–Gault CrCl calculation and clinician-selected anticoagulant dose references.
+- Human-readable internal record identifiers.
 
-For production use, add verified individual accounts, server-side role permissions, encrypted transport/storage, audit logs, backups, retention and security testing. Free hosting tiers may not be appropriate for identifiable health data.
 
-## Automatic haemodynamic screen (v0.7)
-The app no longer asks staff to select a generic stable/unstable status. It screens entered SBP, DBP and SpO₂:
-- SBP ≤90 mmHg or SpO₂ ≤91%: urgent assessment flag.
-- SBP 91–100 mmHg, DBP <60 mmHg or SpO₂ 92–93%: caution flag.
-- All other entered values: no predefined vital-sign red flag detected, but this is not confirmation of haemodynamic stability.
-- Missing any of the three values: screen incomplete.
-These are conservative prompts to trigger bedside review, not validated AF-specific diagnostic criteria or a replacement for a complete early-warning score. The SpO₂ thresholds reflect NEWS2 Scale 1 observation bands; use an alternate target range only when selected by a qualified clinician. Clinical instability attributable to AF must be judged from the whole patient, including perfusion, mental status, ischemia and pulmonary oedema.
+## Guideline policy in v1.0
+The app uses the **2024 ESC Guidelines for the management of atrial fibrillation only**. The ACC/AHA pathway has been removed from the interface and decision logic. The 2024 ESC AF guideline is the latest comprehensive AF-specific guideline identified for this release (reviewed November 2026).
 
-## Staff-only presentation (v0.7)
-- Staff mode shows a plain-language priority, a cardioversion escalation/preparation message and a nursing preparation checklist.
-- Staff mode hides CHA₂DS₂ anticoagulation interpretation, medication suggestions and the doctor's treatment-plan text. Staff can see whether doctor review is pending/completed.
-- Oxygen guidance is conditional on hypoxaemia / respiratory distress and prescribed target; routine oxygen is not advised for patients already within target.
-- Urinary catheterisation is not routine for AF; only if clinically indicated for accurate urine-output monitoring and directed under local protocol.
-- The app never instructs staff to deliver a shock. It asks staff to call the clinician and prepare equipment; synchronized DC cardioversion is a clinician-led emergency pathway when instability is attributable to AF.
+The ESC cardioversion pathway uses the >24-hour threshold: if AF duration is >24 h or unknown, elective cardioversion requires at least 3 weeks of therapeutic anticoagulation or TOE/TEE to exclude intracardiac thrombus. Most patients continue OAC for at least 4 weeks after cardioversion; the guideline permits omission only in patients with no thromboembolic risk factors and restoration of sinus rhythm within 24 h.
 
-- Staff-mode exports redact the doctor's saved treatment-plan text; doctor mode exports may include it.
+**Energy setting:** The 2024 ESC AF guideline does not specify one universal joule setting for synchronized cardioversion. The app therefore directs the clinician to the defibrillator manufacturer's recommended synchronized biphasic setting and the hospital's approved cardioversion protocol rather than importing an AHA energy recommendation into an ESC-only pathway.
 
-## Automatic haemodynamic status screen (v0.7)
-- No manual stable/unstable selector is used.
-- The app automatically screens entered SBP, DBP, SpO₂ and calculated MAP.
-- Red alert thresholds in this draft: SBP ≤90 mmHg, calculated MAP <65 mmHg, DBP ≤40 mmHg, SpO₂ ≤91%, or a selected clinical red-flag sign.
-- Amber prompts: SBP 91–100 mmHg, DBP 41–59 mmHg, or SpO₂ 92–93%.
-- Example BP 80/40 gives calculated MAP about 53 mmHg; with SpO₂ 90%, the app shows “UNSTABLE SCREEN — severe hypotension with hypoxaemia” and tells staff to call the doctor/emergency team now.
-- This is a screening alert, not an independent diagnosis. Only the clinician determines whether instability is attributable to AF and whether synchronized cardioversion is indicated.
-- The draft thresholds must be confirmed by the hospital clinical governance team before clinical use.
+
+## v1.0 staff workflow
+- Staff-facing immediate next steps use simple Hindi/Hinglish and short action instructions.
+- After doctor approval, doctor selects either DC cardioversion preparation or medical-management preparation.
+- Staff sees only the relevant preparation checklist; staff does not see or choose the treatment decision or dose.
+- Staff checklist completion is saved with staff identity and timestamp in the local record.
+- If the patient deteriorates, staff must activate the hospital emergency response rather than wait for app/doctor messaging.
+
+This remains a local-browser prototype. The language selector records the preferred staff language, while the currently authored staff checklist copy is simple Hindi/Hinglish. Full translations and production-grade access controls/synchronization require further implementation.
