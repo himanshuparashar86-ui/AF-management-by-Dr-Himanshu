@@ -1,6 +1,6 @@
 # AF Management by Dr Himanshu — Heartline Healthcare LLP
 
-Free mobile-first PWA prototype (v0.6). No paid API, subscription or external JavaScript dependency.
+Free mobile-first PWA prototype (v0.7). No paid API, subscription or external JavaScript dependency.
 
 ## Run locally
 Serve this folder over localhost or HTTPS (service workers require a secure context). Example: `python -m http.server 8000`, then open `http://localhost:8000`.
@@ -27,7 +27,7 @@ Clinical algorithms are incomplete decision-support prompts, not prescriptions. 
 
 For production use, add verified individual accounts, server-side role permissions, encrypted transport/storage, audit logs, backups, retention and security testing. Free hosting tiers may not be appropriate for identifiable health data.
 
-## Automatic haemodynamic screen (v0.6)
+## Automatic haemodynamic screen (v0.7)
 The app no longer asks staff to select a generic stable/unstable status. It screens entered SBP, DBP and SpO₂:
 - SBP ≤90 mmHg or SpO₂ ≤91%: urgent assessment flag.
 - SBP 91–100 mmHg, DBP <60 mmHg or SpO₂ 92–93%: caution flag.
@@ -35,7 +35,7 @@ The app no longer asks staff to select a generic stable/unstable status. It scre
 - Missing any of the three values: screen incomplete.
 These are conservative prompts to trigger bedside review, not validated AF-specific diagnostic criteria or a replacement for a complete early-warning score. The SpO₂ thresholds reflect NEWS2 Scale 1 observation bands; use an alternate target range only when selected by a qualified clinician. Clinical instability attributable to AF must be judged from the whole patient, including perfusion, mental status, ischemia and pulmonary oedema.
 
-## Staff-only presentation (v0.6)
+## Staff-only presentation (v0.7)
 - Staff mode shows a plain-language priority, a cardioversion escalation/preparation message and a nursing preparation checklist.
 - Staff mode hides CHA₂DS₂ anticoagulation interpretation, medication suggestions and the doctor's treatment-plan text. Staff can see whether doctor review is pending/completed.
 - Oxygen guidance is conditional on hypoxaemia / respiratory distress and prescribed target; routine oxygen is not advised for patients already within target.
@@ -43,3 +43,12 @@ These are conservative prompts to trigger bedside review, not validated AF-speci
 - The app never instructs staff to deliver a shock. It asks staff to call the clinician and prepare equipment; synchronized DC cardioversion is a clinician-led emergency pathway when instability is attributable to AF.
 
 - Staff-mode exports redact the doctor's saved treatment-plan text; doctor mode exports may include it.
+
+## Automatic haemodynamic status screen (v0.7)
+- No manual stable/unstable selector is used.
+- The app automatically screens entered SBP, DBP, SpO₂ and calculated MAP.
+- Red alert thresholds in this draft: SBP ≤90 mmHg, calculated MAP <65 mmHg, DBP ≤40 mmHg, SpO₂ ≤91%, or a selected clinical red-flag sign.
+- Amber prompts: SBP 91–100 mmHg, DBP 41–59 mmHg, or SpO₂ 92–93%.
+- Example BP 80/40 gives calculated MAP about 53 mmHg; with SpO₂ 90%, the app shows “UNSTABLE SCREEN — severe hypotension with hypoxaemia” and tells staff to call the doctor/emergency team now.
+- This is a screening alert, not an independent diagnosis. Only the clinician determines whether instability is attributable to AF and whether synchronized cardioversion is indicated.
+- The draft thresholds must be confirmed by the hospital clinical governance team before clinical use.

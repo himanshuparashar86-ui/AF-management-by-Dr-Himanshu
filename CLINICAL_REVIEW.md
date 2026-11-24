@@ -19,3 +19,8 @@
 - [ ] Confirm oxygen target ranges are prescribed individually; assess hypercapnia risk and avoid routine oxygen in normoxaemia.
 - [ ] Confirm urinary catheter indication and IV cannulation prompts match local nursing policy.
 - [ ] Test role-based staff/doctor presentation with synthetic data only.
+
+- [ ] Approve the automatic red/amber vital-sign screening thresholds (SBP ≤90, MAP <65, DBP ≤40, SpO₂ ≤91; amber SBP 91–100, DBP 41–59, SpO₂ 92–93) against local escalation policy.
+- [ ] Validate MAP calculation and rounding, including example 80/40 → approximately 53 mmHg.
+- [ ] Confirm no staff workflow asks the user to manually declare stable/unstable.
+- [ ] Confirm low SpO₂ triggers respiratory assessment and appropriate oxygen protocol but does not alone mandate cardioversion.

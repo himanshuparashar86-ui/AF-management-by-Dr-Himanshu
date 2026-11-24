@@ -1,19 +1,28 @@
 const $=id=>document.getElementById(id);let records=JSON.parse(localStorage.getItem('hl_af_v1')||'[]'),user={};const ids='pName uhid age sex weight mobile hr sbp dbp spo2 symptoms duration reliability onset assessed ecg qrs wpw lvef creatinine htn diabetes hf stroke vascular bleeding valve notes'.split(' ');function save(){localStorage.setItem('hl_af_v1',JSON.stringify(records));render()}function esc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function durationLabel(v){return ({'lt24':'Less than 24 hours','24to48':'24–48 hours','gt48':'More than 48 hours','unknown':'Unknown / uncertain'})[v]||'Not entered'}function score(p){let y=k=>p[k]==='yes';let age=Number(p.age);let agePoints=Number.isFinite(age)&&p.age!==''?(age>=75?2:age>=65?1:0):0;let ageBand=p.age===''?'Age not entered':age>=75?'75 years or older':age>=65?'65–74 years':'Under 65 years';let base=(y('hf')?1:0)+(y('htn')?1:0)+(y('diabetes')?1:0)+(y('stroke')?2:0)+(y('vascular')?1:0)+agePoints;let female=p.sex==='Female';return{va:base,vasc:base+(female?1:0),agePoints,ageBand,female}}function hemodynamicScreen(p){
   const number=k=>p[k]!==undefined&&p[k]!==''&&Number.isFinite(Number(p[k]))?Number(p[k]):null;
   const sbp=number('sbp'),dbp=number('dbp'),spo2=number('spo2');
+  const map=sbp!==null&&dbp!==null?(sbp+2*dbp)/3:null;
   const clinicalFlags=Array.isArray(p.instability)?p.instability:[];
   const red=[],amber=[];
+  const hypotensionRed=(sbp!==null&&sbp<=90)||(map!==null&&map<65)||(dbp!==null&&dbp<=40);
+  const hypoxaemiaRed=spo2!==null&&spo2<=91;
   if(sbp!==null&&sbp<=90)red.push(`Systolic BP ${sbp} mmHg (≤90)`);
-  if(spo2!==null&&spo2<=91)red.push(`SpO₂ ${spo2}% (≤91%)`);
+  if(map!==null&&map<65)red.push(`Calculated MAP ${Math.round(map)} mmHg (<65)`);
+  if(dbp!==null&&dbp<=40)red.push(`Diastolic BP ${dbp} mmHg (≤40)`);
+  if(hypoxaemiaRed)red.push(`SpO₂ ${spo2}% (≤91%)`);
   if(clinicalFlags.length)red.push(...clinicalFlags);
   if(sbp!==null&&sbp>90&&sbp<=100)amber.push(`Systolic BP ${sbp} mmHg (91–100)`);
-  if(dbp!==null&&dbp<60)amber.push(`Diastolic BP ${dbp} mmHg (<60)`);
+  if(dbp!==null&&dbp<60&&dbp>40)amber.push(`Diastolic BP ${dbp} mmHg (41–59)`);
   if(spo2!==null&&spo2>91&&spo2<=93)amber.push(`SpO₂ ${spo2}% (92–93%)`);
   const complete=sbp!==null&&dbp!==null&&spo2!==null;
-  if(red.length)return {level:'red',label:'Potential haemodynamic / respiratory compromise',badge:'Urgent assessment',reasons:red,detail:'A red-flag observation or clinical sign is present. Arrange immediate bedside clinician assessment. If haemodynamic instability is attributable to AF, follow the emergency synchronized cardioversion pathway.'};
-  if(!complete)return {level:'incomplete',label:'Screen incomplete — enter all three observations',badge:'Awaiting observations',reasons:[],detail:'Enter systolic BP, diastolic BP and SpO₂ to complete this automatic screen. Missing values must not be treated as normal.'};
-  if(amber.length)return {level:'amber',label:'Borderline observations — clinical review required',badge:'Caution',reasons:amber,detail:'Repeat/verify observations and assess perfusion, mental status, ischemia and pulmonary oedema. Do not classify the patient as stable from these numbers alone.'};
-  return {level:'green',label:'No predefined vital-sign red flags detected',badge:'No alert from entered vitals',reasons:[],detail:'This does NOT confirm haemodynamic stability. Confirm adequate perfusion, normal mentation, absence of ongoing ischemia and acute pulmonary oedema at the bedside.'};
+  const emergencyText='Call the doctor / emergency team immediately. Do not classify this patient as stable. The doctor must assess perfusion, mental status, ischemia and pulmonary oedema, and determine whether the instability is attributable to AF. If AF is causing acute haemodynamic instability, the doctor-led emergency pathway is immediate synchronized DC cardioversion. Staff must not independently deliver a shock.';
+  if(red.length){
+    let label=(hypotensionRed&&hypoxaemiaRed)?'UNSTABLE SCREEN — severe hypotension with hypoxaemia':hypotensionRed?'UNSTABLE SCREEN — severe hypotension / low MAP':hypoxaemiaRed?'CRITICAL RED FLAG — low oxygen saturation':'CRITICAL RED FLAG — clinical instability sign';
+    return {level:'red',label,badge:'RED ALERT — call doctor now',reasons:red,detail:emergencyText,map,hypotensionRed,hypoxaemiaRed,complete};
+  }
+  if(!complete)return {level:'incomplete',label:'Screen incomplete — enter SBP, DBP and SpO₂',badge:'Awaiting observations',reasons:[],detail:'Enter all three observations. Missing values must not be treated as normal or as proof of stability.',map,hypotensionRed,hypoxaemiaRed,complete};
+  if(amber.length)return {level:'amber',label:'Borderline observations — prompt doctor review',badge:'CAUTION — review required',reasons:amber,detail:'Repeat and verify observations. Assess perfusion, mental status, ischemia and pulmonary oedema. Do not mark the patient stable solely from these numbers.',map,hypotensionRed,hypoxaemiaRed,complete};
+  return {level:'green',label:'No predefined vital-sign red flags detected',badge:'No vital-sign red flag',reasons:[],detail:'This does not independently confirm haemodynamic stability. Complete bedside assessment of perfusion, mentation, ischemia and pulmonary oedema. The doctor confirms clinical stability.',map,hypotensionRed,hypoxaemiaRed,complete};
 }
 function updateHemoScreen(){
   const p={sbp:$('sbp').value,dbp:$('dbp').value,spo2:$('spo2').value,instability:[...document.querySelectorAll('[name=inst]:checked')].map(x=>x.value)};
@@ -23,18 +32,23 @@ function updateHemoScreen(){
   $('hemoBadge').textContent=s.badge;
   $('hemoTitle').textContent=s.label;
   $('hemoDetail').textContent=s.detail;
-  $('hemoReason').textContent=s.reasons.length?'Flags: '+s.reasons.join('; '):'Screening thresholds: SBP ≤90 or SpO₂ ≤91 are urgent flags; SBP 91–100, DBP <60 or SpO₂ 92–93 are caution flags. These are prompts for review, not stand-alone AF instability criteria.';
+  const mapText=s.map===null?'Calculated MAP: —':`Calculated MAP: ${Math.round(s.map)} mmHg`;
+  $('hemoReason').textContent=(s.reasons.length?'Flags: '+s.reasons.join('; ')+' · ':'')+mapText+'. Red flags: SBP ≤90, MAP <65, DBP ≤40, SpO₂ ≤91 or clinical red-flag signs. Amber prompts: SBP 91–100, DBP 41–59 or SpO₂ 92–93.';
+  renderStaffLiveGuidance();
 }
-
 function staffAssessment(p){
   const h=hemodynamicScreen(p);
   const urgent=h.level==='red'||p.wpw!=='no'||p.qrs==='Wide';
   const caution=!urgent&&h.level==='amber';
-  let priority=urgent?'URGENT — inform doctor / emergency team now':caution?'PROMPT DOCTOR REVIEW':'No vital-sign red flags detected';
-  let shockTitle=urgent?'Prepare for possible emergency cardioversion review':'No automatic shock instruction from entered observations';
-  let shockText=urgent
-    ?'The app cannot decide to deliver a shock. Call the doctor/resuscitation team immediately and prepare the monitor/defibrillator as directed. If the clinician confirms haemodynamic instability caused by AF, the emergency treatment pathway is synchronized DC cardioversion. Staff must not independently deliver a shock.'
-    :'The entered observations do not by themselves indicate an automatic shock pathway. Do not shock on the basis of AF or heart rate alone. The doctor decides after bedside assessment.';
+  let priority=urgent?(h.hypotensionRed?'UNSTABLE SCREEN — call doctor / emergency team now':'CRITICAL RED FLAG — call doctor / emergency team now'):caution?'PROMPT DOCTOR REVIEW':'No vital-sign red flags detected';
+  let shockTitle=h.hypotensionRed?'Urgent doctor assessment for severe hypotension — prepare defibrillator only as directed':h.hypoxaemiaRed?'Low SpO₂ requires respiratory assessment — no automatic cardioversion indication':(p.wpw!=='no'||p.qrs==='Wide')?'ECG red flag — urgent doctor review':'No automatic shock instruction from entered observations';
+  let shockText=h.hypotensionRed
+    ?'Call the doctor/resuscitation team immediately. Prepare the monitor/defibrillator as directed. The doctor must assess whether acute haemodynamic instability is caused by AF. If confirmed, the doctor-led emergency pathway is immediate synchronized DC cardioversion. Staff must not independently deliver a shock.'
+    :h.hypoxaemiaRed
+    ?'Call the doctor promptly and assess airway, breathing and respiratory distress. Give/titrate oxygen only as indicated and according to the prescribed target and hospital protocol. Low SpO₂ alone does not mean DC cardioversion is indicated.'
+    :(p.wpw!=='no'||p.qrs==='Wide')
+    ?'Call the doctor for urgent ECG review and follow the emergency escalation protocol. This ECG flag does not by itself authorise a shock or medication.'
+    :'The entered observations do not show a red-flag shock pathway. Do not shock on the basis of AF or heart rate alone. The doctor confirms stability after bedside assessment.';
   const tasks=[
     ['Call / update doctor', urgent?'Immediately':'Promptly; share the completed assessment'],
     ['ECG and monitoring','Obtain a 12-lead ECG if not already done; attach cardiac monitor if available / per hospital protocol'],
@@ -71,8 +85,12 @@ function renderStaffLiveGuidance(){
   const p={sbp:$('sbp').value,dbp:$('dbp').value,spo2:$('spo2').value,hr:$('hr').value,qrs:$('qrs').value,wpw:$('wpw').value,instability:[...document.querySelectorAll('[name=inst]:checked')].map(x=>x.value)};
   const h=hemodynamicScreen(p);
   const ecgUrgent=p.wpw!=='no'||p.qrs==='Wide';
-  let action=(h.level==='red'||ecgUrgent)
-    ?'Call the doctor / emergency team now. Prepare cardiac monitoring and emergency equipment as directed; the app does not authorise a shock.'
+  let action=h.hypotensionRed
+    ?'UNSTABLE SCREEN: call the doctor / emergency team immediately. Prepare cardiac monitoring and emergency equipment as directed. The doctor decides whether this is AF-related instability and whether synchronized cardioversion is indicated.'
+    :h.hypoxaemiaRed
+    ?'CRITICAL SpO₂ RED FLAG: call the doctor promptly, assess airway/breathing and give oxygen only as indicated under the prescribed target and hospital protocol. Low SpO₂ alone does not indicate DC cardioversion.'
+    :ecgUrgent
+    ?'ECG RED FLAG: call the doctor for urgent ECG review and follow the hospital escalation protocol.'
     :h.level==='amber'
     ?'Repeat observations and notify the doctor for prompt review.'
     :h.level==='green'
