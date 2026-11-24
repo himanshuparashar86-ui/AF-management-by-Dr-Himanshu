@@ -5,7 +5,7 @@
   "display": "standalone",
   "background_color": "#f3f7f7",
   "theme_color": "#00646b",
-  "description": "AF workflow and clinical decision support for Heartline Healthcare LLP \u00b7 v1.4",
+  "description": "AF workflow and clinical decision support for Heartline Healthcare LLP · v1.7",
   "icons": [
     {
       "src": "icon.svg",

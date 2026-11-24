@@ -546,7 +546,7 @@ function downloadBlob(filename, content, type) {
   const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function makeFullBackup() {
-  return {format:'HeartlineAFBackup',version:1,appVersion:'1.4',backedUpAt:new Date().toISOString(),records:JSON.parse(JSON.stringify(records)),treatmentDrafts:JSON.parse(JSON.stringify(treatmentDrafts)),treatmentFavourites:JSON.parse(JSON.stringify(treatmentFavourites)),auditTrail:JSON.parse(JSON.stringify(auditTrail))};
+  return {format:'HeartlineAFBackup',version:1,appVersion:'1.7',backedUpAt:new Date().toISOString(),records:JSON.parse(JSON.stringify(records)),treatmentDrafts:JSON.parse(JSON.stringify(treatmentDrafts)),treatmentFavourites:JSON.parse(JSON.stringify(treatmentFavourites)),auditTrail:JSON.parse(JSON.stringify(auditTrail))};
 }
 function exportAllJson() {
   downloadBlob(`Heartline_AF_Full_Backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(makeFullBackup(),null,2),'application/json');
@@ -728,7 +728,7 @@ function render() {
     <div><b>${esc(r.patient.pName || 'Unnamed patient')}</b><br><small>${esc(formatRecordId(r.id))} · ${esc(r.status || 'Imported')} · ${esc(recordOwner(r) || 'Staff')}</small></div>
     <button class="light" type="button" data-id="${esc(r.id)}">Open patient</button>
   </div>`).join('') || (user.role==='doctor'
-    ? '<div class="empty-records"><b>No patient records on this device.</b><p>Staff records do not sync automatically. Import the JSON file received from staff to view the patient here.</p><button class="light" id="openImport" type="button">Import staff patient file</button></div>'
+    ? '<div class="empty-records"><b>No patient records on this device.</b><p>Staff records do not sync automatically. Import the TXT transfer file received from staff to view the patient here.</p><button class="light" id="openImport" type="button">Import staff patient file</button></div>'
     : '<p class="hint">No patient records entered by your staff account yet. Create a new assessment to begin.</p>');
   $('choose').innerHTML=shownRecords.map(r=>`<option value="${esc(r.id)}">${esc(r.patient.pName || 'Unnamed patient')} · ${esc(formatRecordId(r.id))}</option>`).join('');
   $('doctorBackup').classList.toggle('hidden',user.role!=='doctor');
@@ -761,13 +761,112 @@ function cancelPatientEdit() {
 function exportableRecord(r) {
   return JSON.parse(JSON.stringify(r));
 }
+function encodeTransferPayload(payload) {
+  const bytes=new TextEncoder().encode(JSON.stringify(payload));
+  let binary='';
+  for(let i=0;i<bytes.length;i+=0x8000) binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(binary);
+}
+function decodeTransferPayload(encoded) {
+  const binary=atob(encoded.replace(/\s+/g,''));
+  const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+function buildPatientTransferText(payload) {
+  const r=payload.record||{},p=r.patient||{};
+  const orders=(r.treatmentOrders||[]).map((o,i)=>`${i+1}. ${o.item||'Order'} — ${orderText(o)}`).join('\n')||'No approved treatment orders attached.';
+  const lines=[
+    'HEARTLINE HEALTHCARE LLP — AF MANAGEMENT',
+    'PATIENT TRANSFER FILE (PLAIN TEXT)',
+    'Keep the complete file intact when sharing through WhatsApp.',
+    '',
+    `Transfer type: ${payload.transferType||'patient-handover'}`,
+    `Patient: ${p.pName||'Not entered'}`,
+    `Record ID: ${formatRecordId(r.id)}`,
+    `UHID: ${p.uhid||'Not entered'}`,
+    `Age / Sex: ${p.age??'—'} / ${p.sex||'—'}`,
+    `Heart rate: ${p.hr||'—'} bpm`,
+    `Blood pressure: ${p.sbp||'—'} / ${p.dbp||'—'} mmHg`,
+    `SpO2: ${p.spo2||'—'}%`,
+    `AF duration: ${durationLabel(p.duration)}`,
+    `Entered by: ${recordOwner(r)||'Not recorded'}`,
+    `Record status: ${r.status||'Not recorded'}`,
+    `Approved by: ${r.approvedBy||'Not approved'}`,
+    '',
+    'DOCTOR-APPROVED TREATMENT ORDERS',
+    orders,
+    '',
+    'Plan summary:',
+    r.plan||'No separate plan summary recorded.',
+    '',
+    'IMPORT INSTRUCTIONS:',
+    'Open AF Management → Patient transfer → Import received file → choose this TXT file → Import patient / treatment file.',
+    'The application reads the structured transfer section below. Do not delete or edit that section.',
+    '',
+    '--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---',
+    encodeTransferPayload(payload),
+    '--- END HEARTLINE STRUCTURED TRANSFER DATA V1 ---',
+    ''
+  ];
+  return lines.join('\n');
+}
+async function parsePatientTransferFile(file) {
+  const content=await file.text();
+  if(file.name.toLowerCase().endsWith('.json') || content.trimStart().startsWith('{')) return JSON.parse(content);
+  const match=content.match(/--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---\s*([A-Za-z0-9+/=\s]+?)\s*--- END HEARTLINE STRUCTURED TRANSFER DATA V1 ---/);
+  if(!match) throw new Error('This TXT file does not contain a valid Heartline patient transfer section.');
+  return decodeTransferPayload(match[1]);
+}
 function exportR(r) {
-  const blob=new Blob([JSON.stringify({format:'HeartlineAFTransfer',version:1,record:exportableRecord(r)},null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`${formatRecordId(r.id)}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const payload={format:'HeartlineAFTransfer',version:1,transferType:'patient-handover',record:exportableRecord(r)};
+  const content=buildPatientTransferText(payload);
+  downloadBlob(`${formatRecordId(r.id)}_Patient_Transfer.txt`,content,'text/plain;charset=utf-8');
+}
+
+function setShareStatus(targetId,message,whatsappUrl='') {
+  const host=$(targetId);
+  if(!host)return;
+  host.classList.remove('hidden');
+  host.innerHTML=`${esc(message)}${whatsappUrl?` <a href="${esc(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Open WhatsApp</a>`:''}`;
+}
+function sharePatientViaWhatsApp(r,transferType,statusId) {
+  if(!r||!r.patient)return alert('Patient record is not available.');
+  if(transferType==='doctor-approved-plan'&&(user.role!=='doctor'||r.status!=='Approved'))return alert('Only an approved doctor plan can be shared from Doctor Mode.');
+  if(transferType==='patient-handover'&&!canAccessRecord(r))return alert('You do not have access to this patient record.');
+  const payload={format:'HeartlineAFTransfer',version:1,transferType,record:JSON.parse(JSON.stringify(r))};
+  const filename=transferType==='doctor-approved-plan'
+    ? `${formatRecordId(r.id)}_Doctor_Approved_Plan.txt`
+    : `${formatRecordId(r.id)}_Patient_Handover.txt`;
+  const textFile=buildPatientTransferText(payload);
+  const p=r.patient;
+  let msg='';
+  if(transferType==='doctor-approved-plan') {
+    const orders=(r.treatmentOrders||[]).map((o,i)=>`${i+1}. ${o.item}: ${orderText(o)}`).join('\n')||r.plan||'See the attached approved plan.';
+    msg=`Doctor-approved AF treatment plan\nPatient: ${p.pName||'Not entered'}\nRecord ID: ${formatRecordId(r.id)}\nApproved by: ${r.approvedBy||DEFAULT_DOCTOR_NAME}\n\nApproved orders:\n${orders}\n\nPlease download the attached TXT file, open AF Management → Patient transfer → Import received file, and import the TXT file. It updates the patient record and staff preparation checklist.`;
+  } else {
+    msg=`AF patient handover for doctor review\nPatient: ${p.pName||'Not entered'}\nRecord ID: ${formatRecordId(r.id)}\nUHID: ${p.uhid||'Not entered'}\nAge/Sex: ${p.age||'—'} / ${p.sex||'—'}\nHR: ${p.hr||'—'} bpm · BP: ${p.sbp||'—'}/${p.dbp||'—'} mmHg · SpO₂: ${p.spo2||'—'}%\nAF duration: ${durationLabel(p.duration)}\nEntered by: ${recordOwner(r)||'Staff'}\n\nPlease download the attached TXT file, open AF Management → Patient transfer → Import received file, and import the TXT file to review this patient.`;
+  }
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const waUrl=(isMobile?'https://wa.me/?text=':'https://web.whatsapp.com/send?text=')+encodeURIComponent(msg);
+  try {
+    const file=new File([textFile],filename,{type:'text/plain'});
+    const fileShareSupported=typeof navigator.share==='function'&&typeof navigator.canShare==='function'&&navigator.canShare({files:[file]});
+    if(fileShareSupported) {
+      navigator.share({title:transferType==='doctor-approved-plan'?'Doctor-approved AF treatment plan':'AF patient handover',text:msg,files:[file]})
+        .then(()=>setShareStatus(statusId,'Share menu opened. Choose WhatsApp and the intended doctor/staff chat. The TXT transfer file is attached to the share action.'))
+        .catch(err=>{
+          if(err?.name==='AbortError') { setShareStatus(statusId,'Sharing was cancelled. No file was sent. You can try again.'); return; }
+          downloadBlob(filename,textFile,'text/plain;charset=utf-8');
+          setShareStatus(statusId,`TXT transfer file downloaded (${filename}). Open WhatsApp and attach it as a Document.`,waUrl);
+        });
+      setShareStatus(statusId,'Choose WhatsApp in the share menu, then select the intended recipient.');
+      return;
+    }
+  } catch(e) { /* Fall back to download + WhatsApp Web. */ }
+  downloadBlob(filename,textFile,'text/plain;charset=utf-8');
+  const waWindow=window.open(waUrl,'_blank');
+  const instruction=`TXT transfer file downloaded (${filename}). ${waWindow?'WhatsApp opened in a new tab.':'Open WhatsApp using the link below.'} Select the intended chat, click the paperclip / +, choose Document, attach the TXT file from Downloads, and press Send.`;
+  setShareStatus(statusId,instruction,waWindow?'':waUrl);
 }
 
 function staffApprovedWorkflowHtml(r) {
@@ -812,7 +911,7 @@ function openRecord(id) {
   const detailHost=$('recordDetail'); if(!detailHost)return;
   const d=advice(r.patient);
   const act=user.role==='doctor'
-    ? `<div class="actions doctor-record-actions"><button type="button" id="approve">${r.status==='Approved'?'Update & approve treatment plan':'Approve treatment plan'}</button><button type="button" class="light" id="sendStaffPlan" ${r.status==='Approved'?'':'disabled'}>Send approved plan to staff</button><button type="button" class="light" id="editPatient">Edit patient record</button><button type="button" class="danger-button" id="deletePatient">Delete patient record</button></div>`
+    ? `<div class="actions doctor-record-actions"><button type="button" id="approve">${r.status==='Approved'?'Update & approve treatment plan':'Approve treatment plan'}</button><button type="button" class="light" id="sendStaffPlan" ${r.status==='Approved'?'':'disabled'}>Share approved plan via WhatsApp</button><button type="button" class="light" id="editPatient">Edit patient record</button><button type="button" class="danger-button" id="deletePatient">Delete patient record</button></div>`
     : r.status==='Approved'?'<button class="light" id="correction">Request correction</button>':'';
   const staffBlock=user.role==='staff'?staffAssessmentHtml(r.patient):
     `<h4>Initial clinical data</h4><p>CHA₂DS₂-VA: ${d.s.va} · CHA₂DS₂-VASc: ${d.s.vasc}</p><p>Automatic screen: ${esc(hemodynamicScreen(r.patient).label)}</p>`;
@@ -825,7 +924,8 @@ function openRecord(id) {
     <p>Age ${esc(r.patient.age)} · ${esc(r.patient.sex)} · HR ${esc(r.patient.hr||'—')} · BP ${esc(r.patient.sbp||'—')}/${esc(r.patient.dbp||'—')} · SpO₂ ${esc(r.patient.spo2||'—')} · AF duration ${esc(durationLabel(r.patient.duration))}</p>
     ${staffBlock}${doctorBlock}${planBlock}
     ${r.correction&&user.role==='doctor'?`<p>Correction request (${esc(r.correction.status)}): ${esc(r.correction.reason)}</p>`:''}
-    ${act}<button class="light" id="oneExport" type="button">Export patient JSON</button>
+    ${act}<button class="light" id="oneExport" type="button">Download patient transfer · TXT</button>
+    <p class="share-status hidden" id="recordShareStatus" aria-live="polite"></p>
   </div>`;
   if(user.role==='doctor') bindDoctorPanel(r);
   $('saveStaffChecklist')?.addEventListener('click',()=>{
@@ -849,21 +949,11 @@ function openRecord(id) {
     r.history=r.history||[];r.history.push({event:'Doctor approved / updated treatment plan',by:DEFAULT_DOCTOR_NAME,at:approvedAt,orders:orders.length});
     auditTrail.push({event:'Treatment plan approved / updated',recordId:r.id,by:DEFAULT_DOCTOR_NAME,at:approvedAt,orders:orders.length});
     save();openRecord(r.id);
-    alert('Treatment plan approved and saved. Use “Send approved plan to staff” to share the updated JSON file with the responsible staff member.');
+    alert('Treatment plan approved and saved. Use “Share approved plan via WhatsApp” to send the TXT transfer file to the responsible staff member.');
   });
-  $('sendStaffPlan')?.addEventListener('click',async()=>{
+  $('sendStaffPlan')?.addEventListener('click',()=>{
     if(user.role!=='doctor'||r.status!=='Approved')return;
-    const payload={format:'HeartlineAFTransfer',version:1,transferType:'doctor-approved-plan',record:JSON.parse(JSON.stringify(r))};
-    const file=new File([JSON.stringify(payload,null,2)],`${formatRecordId(r.id)}_Doctor_Approved_Plan.json`,{type:'application/json'});
-    const msg=`Doctor-approved AF treatment plan for ${r.patient.pName}. Import the attached JSON file in AF Management to update the staff workflow.`;
-    if(navigator.canShare?.({files:[file]})) {
-      try { await navigator.share({title:'Doctor-approved treatment plan',text:msg,files:[file]}); }
-      catch(e){if(e.name!=='AbortError')alert('Sharing unavailable. Use Export patient JSON and attach it in your approved channel.');}
-    } else {
-      downloadBlob(file.name,JSON.stringify(payload,null,2),'application/json');
-      window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
-      alert('Attach the downloaded doctor-approved JSON file in WhatsApp.');
-    }
+    sharePatientViaWhatsApp(r,'doctor-approved-plan','recordShareStatus');
   });
   $('editPatient')?.addEventListener('click',()=>startEditRecord(r.id));
   $('deletePatient')?.addEventListener('click',()=>{
@@ -950,17 +1040,13 @@ $('patientForm').onsubmit=e=>{
   }
   if(user.role!=='staff')return alert('Only staff can submit records.');
   const r={id:makeRecordId(),patient:p,status:'Pending review',by:user.name,enteredBy:user.name,createdAt:now,updatedAt:now,history:[{event:'Submitted',by:user.name,at:now}]};
-  records.push(r);auditTrail.push({event:'Patient record created',recordId:r.id,by:user.name,at:now});save();alert('Patient assessment saved. Export the JSON file and share it with the doctor through your approved channel.');tab('list');
+  records.push(r);auditTrail.push({event:'Patient record created',recordId:r.id,by:user.name,at:now});save();alert('Patient assessment saved. Open Patient transfer and choose Share via WhatsApp to send the TXT transfer file to the doctor.');tab('list');
 };
 $('download').onclick=()=>{const r=visibleRecords().find(x=>x.id===$('choose').value);if(r)exportR(r);else alert('Select one of your available patient records.')};
-$('whatsapp').onclick=async()=>{
-  const r=visibleRecords().find(x=>x.id===$('choose').value);if(!r)return alert('Select one of your available patient records.');
-  const f=new File([JSON.stringify({format:'HeartlineAFTransfer',version:1,record:exportableRecord(r)},null,2)],`${formatRecordId(r.id)}.json`,{type:'application/json'});
-  const msg=`AF assessment for review. Patient: ${r.patient.pName}. Record: ${formatRecordId(r.id)}. AF duration: ${durationLabel(r.patient.duration)}. Vital-sign screen: ${hemodynamicScreen(r.patient).label}. Import the attached JSON file in AF Management.`;
-  if(navigator.canShare?.({files:[f]})) {
-    try { await navigator.share({title:'AF patient handover',text:msg,files:[f]}); }
-    catch(e){if(e.name!=='AbortError')alert('Share unavailable. Export JSON and attach manually in WhatsApp.');}
-  } else { exportR(r);window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');alert('Attach the downloaded JSON file in WhatsApp.');}
+$('whatsapp').onclick=()=>{
+  const r=visibleRecords().find(x=>x.id===$('choose').value);
+  if(!r)return alert('Select one of your available patient records.');
+  sharePatientViaWhatsApp(r,'patient-handover','transferShareStatus');
 };
 $('print').onclick=()=>{
   const r=visibleRecords().find(x=>x.id===$('choose').value);if(!r)return alert('Select one of your available patient records.');
@@ -984,10 +1070,10 @@ $('restoreBackup').onclick=async()=>{
   catch(e){alert('Restore failed: '+e.message);}
 };
 $('import').onclick=async()=>{
-  const f=$('file').files[0];if(!f)return alert('Choose JSON file.');
+  const f=$('file').files[0];if(!f)return alert('Choose the TXT transfer file downloaded from WhatsApp. Older JSON patient handover files are also supported.');
   try{
-    const o=JSON.parse(await f.text()),r=o.record;
-    if(o.format!=='HeartlineAFTransfer'||!r?.id||!r.patient)throw Error('Invalid patient transfer file.');
+    const o=await parsePatientTransferFile(f),r=o.record;
+    if(o.format!=='HeartlineAFTransfer'||!r?.id||!r.patient)throw Error('Invalid patient transfer file. For a full database backup, use Doctor → Restore complete JSON backup.');
     const doctorApprovedUpdate=o.transferType==='doctor-approved-plan'&&r.status==='Approved'&&r.approvedBy===DEFAULT_DOCTOR_NAME;
     if(user.role==='staff' && normalizedStaffName(recordOwner(r))!==normalizedStaffName(user.name)) throw Error('This file belongs to another staff member. Staff can import only their own patient records.');
     if(user.role==='staff' && r.status==='Approved' && !doctorApprovedUpdate) throw Error('Only a doctor-approved plan transfer can update an approved staff record.');
@@ -995,7 +1081,7 @@ $('import').onclick=async()=>{
     if(i>=0&&records[i].status==='Approved'&&user.role!=='doctor'&&!doctorApprovedUpdate)throw Error('Staff cannot overwrite an approved record unless it is a doctor-approved plan update.');
     if(i>=0)records[i]=r;else records.push(r);
     save();tab('list');if(user.role==='doctor')openRecord(r.id);else if(doctorApprovedUpdate)openRecord(r.id);
-    alert(doctorApprovedUpdate?'Doctor-approved plan imported. Check the treatment orders and preparation checklist.':'Imported successfully. Confirm patient identity and review the opened record.');
+    alert(doctorApprovedUpdate?'Doctor-approved treatment file imported. Check the orders and preparation checklist.':'Patient transfer file imported. Confirm patient identity and review the record.');
   }catch(e){alert('Import failed: '+e.message);}
 };
 ['sbp','dbp','spo2'].forEach(id=>$(id).addEventListener('input',updateHemoScreen));

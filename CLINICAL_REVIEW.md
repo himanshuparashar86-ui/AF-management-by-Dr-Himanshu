@@ -33,3 +33,11 @@ This prototype must be validated by the responsible cardiologist, pharmacy and h
 - [ ] Verify parenteral UFH and enoxaparin protocols, monitoring and dose entry with pharmacy / clinical governance; app intentionally does not auto-calculate doses.
 - [ ] Validate available oral VKA choices (warfarin / acenocoumarol) and DOAC options against local formulary.
 - [ ] Confirm CBC, KFT, ABG, Troponin I and NT-proBNP options match the local investigation ordering workflow.
+
+- [ ] Confirm the hospital/organisation permits transmission of patient-identifiable clinical data through the selected WhatsApp account and device.
+- [ ] Test the desktop flow: JSON download, WhatsApp Web launch, correct recipient selection, manual Document attachment, recipient import.
+- [ ] Test supported mobile devices: share sheet includes the JSON file and WhatsApp is available as a target.
+
+- [ ] Verify WhatsApp TXT transfer on the actual clinic desktop/browser and staff mobile devices.
+- [ ] Confirm all transfers are sent only to the intended authorised recipient; the TXT file contains identifiable patient information.
+- [ ] Retain the structured transfer section intact; do not edit the TXT file after export.

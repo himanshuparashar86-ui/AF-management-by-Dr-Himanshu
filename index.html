@@ -663,7 +663,7 @@
      </label>
      <div class="actions">
       <button id="download">
-       Export JSON
+       Download patient transfer · TXT
       </button>
       <button class="light" id="whatsapp">
        Share via WhatsApp
@@ -672,13 +672,15 @@
        Print / Save PDF
       </button>
      </div>
+     <p class="share-status hidden" id="transferShareStatus" aria-live="polite"></p>
      <hr/>
      <h4>
       Import received file
      </h4>
-     <input accept=".json,application/json" id="file" type="file"/>
+     <p class="hint">Download the TXT attachment from WhatsApp, then select it here. The app-generated TXT file contains a readable summary and a protected structured section so the full patient record and approved orders can be restored. Older JSON handover files are also accepted.</p>
+     <input accept=".txt,text/plain,.json,application/json" id="file" type="file"/>
      <button class="light" id="import">
-      Import JSON
+      Import patient / treatment file
      </button>
      <div class="doctor-backup hidden" id="doctorBackup">
       <hr/>
@@ -732,7 +734,7 @@
    </section>
   </main>
   <footer>
-   Heartline Healthcare LLP · Prototype v1.5 · ESC 2024 · Staff entry wizard · Doctor treatment and backup
+   Heartline Healthcare LLP · Prototype v1.7 · ESC 2024 · TXT WhatsApp transfer
   </footer>
   <script src="app.js">
   </script>

@@ -109,3 +109,7 @@
 .staff-respiratory-alert{border:1px solid #d99a36;background:#fff9ed;border-radius:10px;padding:12px;margin:12px 0}
 .staff-respiratory-alert h4{color:#76500c;margin:0 0 7px}
 .staff-cardioversion-prep p,.staff-respiratory-alert p{line-height:1.5}
+
+/* v1.6 WhatsApp handover feedback */
+.share-status{margin:10px 0;padding:10px 12px;border:1px solid #b7d8d2;background:#f0f8f6;color:#23494a;border-radius:9px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.share-status a{display:inline-block;margin-left:5px;color:#00646b;font-weight:800;text-decoration:underline}
