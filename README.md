@@ -76,3 +76,14 @@ Serve the repository root over HTTPS (for example, GitHub Pages) or localhost. O
 - The emergency phone numbers are user-provided contact shortcuts, not an emergency-services dispatch system. Check both numbers and local emergency escalation policy before use.
 - Required-field rules and the wizard have not been clinically validated. Use synthetic data for testing and have clinical governance/nursing leadership review before any identifiable patient data is entered.
 - Unknown score criteria trigger a provisional-score warning and suppress score-threshold anticoagulation output; a clinician must clarify the history.
+
+
+## Version 1.5 changes
+
+The Doctor decision panel now asks whether haemodynamic instability is attributable to AF only when the patient assessment contains a qualifying instability signal (severe hypotension / low MAP or a bedside clinical instability flag). An isolated low SpO₂ or an ECG finding alone does not trigger that question.
+
+Staff Mode displays DC cardioversion preparation guidance only when possible AF-related clinical instability is present. Stable AF does not show shock/cardioversion wording. Low SpO₂ and urgent ECG findings have separate respiratory / ECG review instructions. AF on ECG alone is not classified as a red flag.
+
+Anticoagulant selections now include apixaban, rivaroxaban, dabigatran, warfarin, Acitrom (acenocoumarol), IV unfractionated heparin and enoxaparin (Clexane). The app does not calculate injectable anticoagulant doses. The order builder adds CBC, KFT, ABG, Troponin I and NT-proBNP to the existing investigations.
+
+All v1.4 features remain included.

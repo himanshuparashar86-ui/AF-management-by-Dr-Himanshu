@@ -112,6 +112,17 @@ function hemodynamicScreen(p) {
     badge:'No vital-sign red flag', reasons:[], map, mapText, hypotensionRed:false, hypoxaemiaRed:false, complete
   };
 }
+function hasPotentialAfRelatedInstability(p) {
+  const h=hemodynamicScreen(p);
+  const clinicalFlags=Array.isArray(p.instability)?p.instability:[];
+  const bedsideInstability=clinicalFlags.some(x=>/shock|poor perfusion|severe hypotension|ongoing ischemia|acute pulmonary edema|altered consciousness/i.test(String(x)));
+  // Low SpO₂ alone needs urgent respiratory assessment, but is not by itself an AF-cardioversion indication.
+  return !!(h.hypotensionRed || bedsideInstability);
+}
+function hasUrgentEcgConcern(p) {
+  return p.qrs==='Wide' || p.wpw==='yes';
+}
+
 function updateHemoScreen() {
   const p = {
     sbp:$('sbp').value, dbp:$('dbp').value, spo2:$('spo2').value,
@@ -136,33 +147,42 @@ function updateHemoScreen() {
 }
 function staffAssessment(p) {
   const h = hemodynamicScreen(p);
-  const urgent = h.level === 'red' || p.wpw !== 'no' || p.qrs === 'Wide';
-  const caution = !urgent && h.level === 'amber';
-  const priority = urgent ? 'अभी डॉक्टर / emergency team को बुलाएं' : caution ? 'डॉक्टर को जल्दी जानकारी दें' : 'अभी दिए गए BP/SpO₂ में बड़ा खतरे का संकेत नहीं';
-  let shockTitle, shockText;
-  if (h.hypotensionRed || (p.instability || []).some(x => /Shock|hypotension|ischemia|pulmonary edema|consciousness/i.test(x))) {
-    shockTitle = 'Urgent doctor assessment — prepare defibrillator only as directed';
-    shockText = 'Call the doctor/resuscitation team immediately. Prepare monitor/defibrillator as directed. The doctor must assess whether acute instability is caused by AF. If confirmed, the doctor-led emergency pathway is immediate synchronized DC cardioversion. Staff must not independently deliver a shock.';
+  const possibleAfInstability=hasPotentialAfRelatedInstability(p);
+  const urgentEcg=hasUrgentEcgConcern(p);
+  const ecgUncertain=p.wpw==='uncertain' || p.qrs==='Unknown';
+  const urgent = possibleAfInstability || h.hypoxaemiaRed || urgentEcg;
+  const caution = !urgent && (h.level === 'amber' || ecgUncertain);
+  const priority = possibleAfInstability
+    ? 'अभी डॉक्टर / emergency team को बुलाएं'
+    : h.hypoxaemiaRed
+      ? 'ऑक्सीजन कम है — डॉक्टर को अभी बताएं'
+      : urgentEcg
+        ? 'ECG में urgent finding — डॉक्टर को तुरंत बताएं'
+        : caution
+          ? 'डॉक्टर को जल्दी जानकारी दें'
+          : 'अभी दिए गए observations में बड़ा खतरे का संकेत नहीं';
+
+  let focusedGuidance='';
+  if (possibleAfInstability) {
+    focusedGuidance = `<section class="staff-cardioversion-prep"><h4>Possible AF-related instability — DC cardioversion की तैयारी करें</h4><p>मरीज की हालत गंभीर हो सकती है। डॉक्टर और emergency team को तुरंत बुलाएं। DC cardioversion की जरूरत पड़ सकती है, यदि डॉक्टर पुष्टि करें कि instability AF की वजह से है।</p><p>DC machine और pads तैयार रखें, मरीज को continuous ECG monitor पर रखें और oxygen, suction तथा airway/emergency सामान पास रखें। Shock केवल डॉक्टर के निर्देश और hospital emergency protocol के अनुसार दिया जाएगा।</p></section>`;
   } else if (h.hypoxaemiaRed) {
-    shockTitle = 'Low SpO₂ — respiratory assessment required; no automatic shock indication';
-    shockText = 'Call the doctor promptly, assess airway/breathing and give oxygen only as indicated under the prescribed target and hospital protocol. Low SpO₂ alone does not mean DC cardioversion is indicated.';
-  } else if (p.wpw !== 'no' || p.qrs === 'Wide') {
-    shockTitle = 'ECG red flag — urgent doctor review';
-    shockText = 'Call the doctor for urgent ECG review and follow the hospital escalation protocol. This ECG flag does not itself authorise a shock or medication.';
-  } else {
-    shockTitle = 'No automatic shock instruction from entered observations';
-    shockText = 'Do not shock on the basis of AF or heart rate alone. The doctor confirms stability after bedside assessment.';
+    focusedGuidance = `<section class="staff-respiratory-alert"><h4>Low oxygen saturation — तुरंत respiratory assessment</h4><p>डॉक्टर को अभी बताएं। मरीज की सांस, SpO₂ और airway देखें। Oxygen केवल clinical need और hospital protocol / prescribed target के अनुसार दें। सांस की तकलीफ और SpO₂ पर लगातार नजर रखें।</p></section>`;
+  } else if (urgentEcg) {
+    focusedGuidance = `<section class="staff-respiratory-alert"><h4>Urgent ECG review</h4><p>Wide QRS या pre-excitation की आशंका है। ECG तुरंत डॉक्टर को दिखाएं और बिना डॉक्टर के निर्देश कोई rate-control दवा न दें।</p></section>`;
+  } else if (ecgUncertain) {
+    focusedGuidance = `<section class="staff-respiratory-alert"><h4>ECG details confirm करें</h4><p>QRS / WPW की जानकारी अधूरी है। ECG डॉक्टर से verify करवाएं।</p></section>`;
   }
+
   const tasks = [
-    ['डॉक्टर को फोन करें', urgent ? 'अभी फोन करें। मरीज की हालत और BP/SpO₂ बताएं।' : 'जल्दी डॉक्टर को जानकारी दें और रिपोर्ट भेजें।'],
+    ['डॉक्टर को फोन करें', urgent ? 'अभी फोन करें। मरीज की हालत और BP/SpO₂ बताएं।' : 'डॉक्टर को जानकारी दें और assessment भेजें।'],
     ['ECG और मॉनिटर', 'ECG करें और मरीज को cardiac monitor पर लगाएं।'],
     ['BP और ऑक्सीजन चेक करें', 'BP, pulse और SpO₂ दोबारा लिखें। हालत बिगड़े तो तुरंत बताएं।'],
     ['हाथ में IV लाइन लगाएं', 'डॉक्टर/अस्पताल के तय protocol के अनुसार IV cannula लगाएं।'],
     ['Oxygen', 'सांस और SpO₂ देखें। जरूरत होने पर डॉक्टर/प्रोटोकॉल के अनुसार oxygen दें।'],
-    ['Emergency सामान तैयार रखें', 'मरीज की हालत खराब हो तो emergency team बुलाएं। DC machine पास रखें; shock केवल डॉक्टर के निर्देश या emergency protocol के अनुसार।'],
+    ['Emergency सामान तैयार रखें', possibleAfInstability ? 'Emergency trolley, oxygen, suction और airway सामान पास रखें। DC machine की तैयारी ऊपर दिए निर्देश के अनुसार करें।' : 'मरीज की हालत बिगड़े तो emergency team बुलाएं और hospital emergency protocol follow करें।'],
     ['दवा खुद से न दें', 'Score देखकर कोई दवा, injection या antibiotic शुरू न करें। डॉक्टर के आदेश का इंतजार करें।']
   ];
-  return {h,urgent,caution,priority,shockTitle,shockText,tasks};
+  return {h,urgent,caution,priority,possibleAfInstability,focusedGuidance,tasks};
 }
 function staffAssessmentHtml(p) {
   const a = staffAssessment(p), cls = a.urgent ? 'urgent' : a.caution ? 'caution' : 'normal';
@@ -171,7 +191,7 @@ function staffAssessmentHtml(p) {
     <div class="staff-result-head"><small>STAFF ASSESSMENT</small><strong>${esc(a.priority)}</strong></div>
     <p><b>Automatic vital-sign screen:</b> ${esc(a.h.label)}</p>
     ${a.h.reasons.length?`<p><b>Reason:</b> ${esc(a.h.reasons.join('; '))}</p>`:''}
-    <h4>Shock / cardioversion</h4><p><b>${esc(a.shockTitle)}</b></p><p>${esc(a.shockText)}</p>
+    ${a.focusedGuidance}
     <h4>Staff preparation checklist</h4><ul class="staff-task-list">${tasks}</ul>
     <p class="staff-no-treatment"><b>Treatment details are hidden in Staff Mode.</b> Follow the doctor’s documented instructions after review.</p>
   </div>`;
@@ -185,12 +205,16 @@ function renderStaffLiveGuidance() {
     instability:[...document.querySelectorAll('[name=inst]:checked')].map(x=>x.value)
   };
   const h = hemodynamicScreen(p);
-  const action = h.level==='red' ? 'RED ALERT: call doctor / emergency team immediately. Prepare monitoring and emergency equipment as directed; doctor decides whether AF-related instability requires synchronized cardioversion.' :
-    h.level==='amber' ? 'ORANGE CAUTION: repeat observations and notify the doctor promptly.' :
-    h.level==='green' ? 'No predefined vital-sign red flags. Continue observations and complete bedside assessment.' :
-    'Enter SBP, DBP and SpO₂ to display the staff guidance.';
-  host.className = 'staff-guidance' + (h.level==='red'?' urgent':h.level==='amber'?' caution':'');
-  host.innerHTML = `<b>Staff next step</b><p>${esc(action)}</p><small>Doctor-only: cardioversion decision, anticoagulation, rate/rhythm strategy and drug doses.</small>`;
+  const possibleAfInstability=hasPotentialAfRelatedInstability(p);
+  const urgentEcg=hasUrgentEcgConcern(p);
+  let action='Enter SBP, DBP and SpO₂ to display the staff guidance.';
+  if(possibleAfInstability) action='RED ALERT: अभी डॉक्टर और emergency team को बुलाएं। मरीज को monitor पर लगाएं और possible AF-related instability के कारण DC cardioversion की तैयारी करें; डॉक्टर पुष्टि करेंगे कि इसकी जरूरत है या नहीं।';
+  else if(h.hypoxaemiaRed) action='RED ALERT: SpO₂ कम है। डॉक्टर को अभी बताएं, सांस/airway देखें और hospital protocol के अनुसार respiratory support तैयार करें.';
+  else if(urgentEcg) action='URGENT ECG REVIEW: ECG तुरंत डॉक्टर को दिखाएं। बिना निर्देश rate-control दवा न दें.';
+  else if(h.level==='amber') action='ORANGE CAUTION: observations दोबारा check करें और डॉक्टर को जल्दी बताएं.';
+  else if(h.level==='green') action='No predefined vital-sign red flags. Routine monitoring जारी रखें और bedside assessment पूरा करें.';
+  host.className = 'staff-guidance' + ((possibleAfInstability||h.hypoxaemiaRed)?' urgent':(h.level==='amber'||urgentEcg)?' caution':'');
+  host.innerHTML = `<b>Staff next step</b><p>${esc(action)}</p><small>Treatment decisions, medicines and doses are doctor-only.</small>`;
 }
 function collect() {
   const p = {};
@@ -229,8 +253,8 @@ function anticoagDecision(p, scores, guideline) {
   };
   if (p.valve==='yes') return {
     level:'normal', decision:'vka',
-    text:'The form flags a mechanical valve or moderate/severe rheumatic mitral stenosis. A vitamin K antagonist (warfarin) pathway is required; DOAC options should not be selected.',
-    route:'Long-term oral VKA with INR-guided dosing; do not use a fixed warfarin dose from this app.'
+    text:'The form flags a mechanical valve or moderate/severe rheumatic mitral stenosis. A vitamin K antagonist pathway (warfarin or acenocoumarol / Acitrom) is required; DOAC options should not be selected.',
+    route:'Long-term oral VKA with INR-guided dosing; the treating doctor selects warfarin or acenocoumarol and individualizes the dose.'
   };
   if (p.valve!=='no') return {
     level:'caution', decision:'review',
@@ -263,13 +287,15 @@ function anticoagDecision(p, scores, guideline) {
 }
 
 function doseReference(agent,p,renal,oac) {
-  if (oac && oac.decision==='vka' && (!agent || agent==='none' || agent==='warfarin')) return 'Vitamin K antagonist pathway: warfarin with INR-guided, individualized dosing. No fixed warfarin dose is generated.';
+  if (agent==='ufh') return 'IV unfractionated heparin selected. The app does not calculate an IV bolus or infusion. The treating doctor must enter the indication-specific regimen, weight-based dose if applicable, monitoring target (e.g. aPTT / anti-Xa), and adjustment protocol in the treatment order.';
+  if (agent==='enoxaparin') return 'Enoxaparin (Clexane) selected. The app does not calculate a dose. The treating doctor must individualize the SC regimen by indication, body weight, renal function, bleeding risk and local product information.';
+  if (oac && oac.decision==='vka' && (!agent || agent==='none' || agent==='warfarin' || agent==='acenocoumarol')) return 'Vitamin K antagonist pathway: warfarin or acenocoumarol (Acitrom), with INR-guided individualized dosing. No fixed dose is generated.';
   if (oac && !['recommend','consider','vka'].includes(oac.decision)) return 'No routine oral anticoagulation dose is suggested from the selected score pathway alone. If another indication exists, make an individual clinician decision.';
   if (oac && oac.decision==='review') return 'Dose not generated: the stroke-risk pathway requires clinician interpretation.';
   if (!agent || agent==='none') return 'Select the intended anticoagulant to display its dose reference. The app does not choose the drug for you.';
   if (p.bleeding==='yes') return 'Dose not displayed: bleeding history / active bleeding requires clinician review first.';
-  if (p.valve==='yes' && agent!=='warfarin') return 'DOAC dose blocked: mechanical valve / moderate-severe rheumatic MS is flagged. Use the VKA pathway under specialist supervision.';
-  if (agent==='warfarin') return 'Warfarin: individualize and titrate to INR (commonly target 2.0–3.0 for non-valvular AF; valve-specific targets may differ). No fixed dose is generated.';
+  if (p.valve==='yes' && !['warfarin','acenocoumarol'].includes(agent)) return 'DOAC dose blocked: mechanical valve / moderate-severe rheumatic MS is flagged. Use the VKA pathway under specialist supervision.';
+  if (agent==='warfarin' || agent==='acenocoumarol') return `${agent==='warfarin'?'Warfarin':'Acenocoumarol (Acitrom)'}: individualize and titrate to INR. No fixed dose is generated.`;
   if (renal.value===null) return `Dose not calculated. ${renal.reason}`;
   const c=renal.value, age=Number(p.age), wt=Number(p.weight), scr=Number(p.creatinine);
   if (agent==='apixaban') {
@@ -281,11 +307,6 @@ function doseReference(agent,p,renal,oac) {
     if (c<15) return `CrCl ${c.toFixed(1)} mL/min: US label advises avoiding rivaroxaban below 15 mL/min. Do not auto-prescribe.`;
     return `US FDA NVAF label reference: ${c>50?'20 mg orally once daily with evening meal':'15 mg orally once daily with evening meal'} (CrCl ${c.toFixed(1)} mL/min).`;
   }
-  if (agent==='edoxaban') {
-    if (c>95) return `CrCl ${c.toFixed(1)} mL/min: US label says do not use edoxaban for NVAF when CrCl >95 mL/min.`;
-    if (c<15) return `CrCl ${c.toFixed(1)} mL/min: no NVAF dose generated for CrCl <15 mL/min.`;
-    return `US FDA NVAF label reference: ${c<=50?'30 mg orally once daily':'60 mg orally once daily'} (CrCl ${c.toFixed(1)} mL/min).`;
-  }
   if (agent==='dabigatran') {
     if (c<15) return `CrCl ${c.toFixed(1)} mL/min: no dose recommendation available in this reference below 15 mL/min.`;
     if (c<=30) return `US FDA NVAF label reference: 75 mg orally twice daily for CrCl 15–30 mL/min. Check P-gp interactions and local label carefully.`;
@@ -295,8 +316,9 @@ function doseReference(agent,p,renal,oac) {
 }
 function cardioversionDecision(p, review, scores, oac) {
   const h=hemodynamicScreen(p);
-  const urgentECG=p.wpw!=='no'||p.qrs==='Wide';
-  if (review.afInstability==='yes') {
+  const possibleAfInstability=hasPotentialAfRelatedInstability(p);
+  const afAttribution=possibleAfInstability?review.afInstability:'not-applicable';
+  if (afAttribution==='yes') {
     return {
       level:'urgent',
       title:'YES — immediate synchronized DC cardioversion is recommended',
@@ -305,7 +327,7 @@ function cardioversionDecision(p, review, scores, oac) {
       note:'If the rhythm is pre-excited AF / WPW or the diagnosis is uncertain, use the appropriate expert emergency rhythm pathway. This energy reference is for synchronized AF cardioversion, not unsynchronized defibrillation.'
     };
   }
-  if (review.afInstability==='unknown' && h.level==='red') {
+  if (afAttribution==='unknown' && possibleAfInstability) {
     return {
       level:'urgent',
       title:'RED ALERT — emergency bedside assessment; AF-related instability not yet confirmed',
@@ -314,7 +336,7 @@ function cardioversionDecision(p, review, scores, oac) {
       note:'Low SpO₂ alone does not establish AF-caused instability; assess respiratory and other causes.'
     };
   }
-  if (review.afInstability==='no' && h.level==='red') {
+  if (afAttribution==='no' && possibleAfInstability) {
     return {
       level:'caution',
       title:'NO AF-triggered emergency cardioversion based on the current attribution',
@@ -323,16 +345,6 @@ function cardioversionDecision(p, review, scores, oac) {
       note:'Do not interpret this as a declaration that the patient is safe or stable.'
     };
   }
-  if (review.afInstability==='unknown') {
-    return {
-      level:'caution',
-      title:'Cardioversion decision not yet determined',
-      detail:'Complete the bedside haemodynamic assessment and record whether instability is attributable to AF. Do not convert this incomplete assessment into an automatic cardioversion decision.',
-      energy:'No energy setting recommended until a cardioversion indication is established.',
-      note:'The doctor makes the final rate/rhythm and cardioversion decision.'
-    };
-  }
-
   const dur=p.duration;
   const prolongedEsc=(dur==='24to48'||dur==='gt48'||dur==='unknown');
   const prolongedAcc=(dur==='gt48'||dur==='unknown');
@@ -377,12 +389,15 @@ function cardioversionDecision(p, review, scores, oac) {
 }
 function doctorReviewValues(r) {
   const saved=r.doctorReview || {};
+  const assessmentHasInstability=hasPotentialAfRelatedInstability(r.patient);
+  const savedAgent=saved.agent==='edoxaban'?'none':(saved.agent||'none');
+  const savedInstability=['yes','no','unknown'].includes(saved.afInstability)?saved.afInstability:'unknown';
   return {
     guideline:'esc',
-    afInstability:saved.afInstability || 'unknown',
+    afInstability:assessmentHasInstability?savedInstability:'not-applicable',
     preOac:saved.preOac || 'unknown',
     tee:saved.tee || 'notdone',
-    agent:saved.agent || 'none'
+    agent:savedAgent
   };
 }
 function doctorDecisionData(r, review) {
@@ -435,9 +450,9 @@ function doctorDecisionHtml(r, review) {
 const ORDER_ITEMS = {
   rate: ['Diltiazem','Metoprolol','Esmolol','Digoxin','Other / custom order'],
   rhythm: ['Amiodarone','Flecainide','Propafenone','Other / custom order'],
-  anticoagulation: ['Apixaban','Rivaroxaban','Dabigatran','Edoxaban','Warfarin','Unfractionated heparin (UFH)','Enoxaparin','Other / custom order'],
+  anticoagulation: ['Apixaban','Rivaroxaban','Dabigatran','Warfarin','Acitrom (acenocoumarol)','Unfractionated heparin (IV UFH)','Enoxaparin (Clexane)','Other / custom order'],
   cardioversion: ['Synchronized DC cardioversion','TEE / TOE assessment','Other / custom order'],
-  investigation: ['12-lead ECG','Electrolytes (K⁺ / Mg²⁺)','Echocardiography','Thyroid function tests','Other / custom order'],
+  investigation: ['12-lead ECG','Electrolytes (K⁺ / Mg²⁺)','Echocardiography','Thyroid function tests (TFT)','Complete blood count (CBC)','Kidney function tests (KFT)','Arterial blood gas (ABG)','Troponin I','NT-proBNP','Other / custom order'],
   supportive: ['Monitoring instruction','Oxygen instruction','IV access / preparation','Other / custom order']
 };
 function getOrderDraft(r) {
@@ -586,13 +601,14 @@ function restoreFullBackup(obj) {
 
 function doctorPanelHtml(r) {
   const v=doctorReviewValues(r);
+  const showAfInstabilityQuestion=hasPotentialAfRelatedInstability(r.patient);
   return `<div class="doctor-panel" id="doctorPanel">
     <h4>Doctor decision panel</h4>
     <div class="grid">
-      <label>Is haemodynamic instability attributable to AF?<select id="drAfInstability"><option value="unknown" ${v.afInstability==='unknown'?'selected':''}>Not yet assessed</option><option value="yes" ${v.afInstability==='yes'?'selected':''}>Yes — attributable to AF</option><option value="no" ${v.afInstability==='no'?'selected':''}>No — another cause</option></select></label>
+      ${showAfInstabilityQuestion?`<label>Is haemodynamic instability attributable to AF?<select id="drAfInstability"><option value="unknown" ${v.afInstability==='unknown'?'selected':''}>Not yet assessed</option><option value="yes" ${v.afInstability==='yes'?'selected':''}>Yes — attributable to AF</option><option value="no" ${v.afInstability==='no'?'selected':''}>No — another cause</option></select></label>`:''}
       <label>Therapeutic anticoagulation ≥3 weeks with adherence confirmed?<select id="drPreOac"><option value="unknown" ${v.preOac==='unknown'?'selected':''}>Unknown / not confirmed</option><option value="yes" ${v.preOac==='yes'?'selected':''}>Yes</option><option value="no" ${v.preOac==='no'?'selected':''}>No</option></select></label>
       <label>TEE / TOE result<select id="drTee"><option value="notdone" ${v.tee==='notdone'?'selected':''}>Not done / not available</option><option value="clear" ${v.tee==='clear'?'selected':''}>No atrial thrombus detected</option><option value="thrombus" ${v.tee==='thrombus'?'selected':''}>Atrial thrombus detected</option><option value="indeterminate" ${v.tee==='indeterminate'?'selected':''}>Indeterminate</option></select></label>
-      <label>Anticoagulant selected by doctor<select id="drAgent"><option value="none" ${v.agent==='none'?'selected':''}>Not selected</option><option value="apixaban" ${v.agent==='apixaban'?'selected':''}>Apixaban</option><option value="rivaroxaban" ${v.agent==='rivaroxaban'?'selected':''}>Rivaroxaban</option><option value="edoxaban" ${v.agent==='edoxaban'?'selected':''}>Edoxaban</option><option value="dabigatran" ${v.agent==='dabigatran'?'selected':''}>Dabigatran</option><option value="warfarin" ${v.agent==='warfarin'?'selected':''}>Warfarin</option></select></label>
+      <label>Anticoagulant selected by doctor<select id="drAgent"><option value="none" ${v.agent==='none'?'selected':''}>Not selected</option><option value="apixaban" ${v.agent==='apixaban'?'selected':''}>Apixaban</option><option value="rivaroxaban" ${v.agent==='rivaroxaban'?'selected':''}>Rivaroxaban</option><option value="dabigatran" ${v.agent==='dabigatran'?'selected':''}>Dabigatran</option><option value="warfarin" ${v.agent==='warfarin'?'selected':''}>Warfarin</option><option value="acenocoumarol" ${v.agent==='acenocoumarol'?'selected':''}>Acitrom (acenocoumarol)</option><option value="ufh" ${v.agent==='ufh'?'selected':''}>IV Unfractionated heparin (UFH)</option><option value="enoxaparin" ${v.agent==='enoxaparin'?'selected':''}>Enoxaparin (Clexane)</option></select></label>
     </div>
     <div id="doctorDecisionOutput">${doctorDecisionHtml(r,v)}</div>
     <div class="actions"><button type="button" class="light" id="saveDoctorReview">Save doctor review inputs</button></div>
@@ -604,7 +620,7 @@ function renderDoctorPanel(r) {
   if (!host) return;
   const v={
     guideline:'esc',
-    afInstability:$('drAfInstability').value,
+    afInstability:$('drAfInstability')?.value || 'not-applicable',
     preOac:$('drPreOac').value,
     tee:$('drTee').value,
     agent:$('drAgent').value
@@ -614,7 +630,7 @@ function renderDoctorPanel(r) {
 function captureDoctorReview() {
   return {
     guideline:'esc',
-    afInstability:$('drAfInstability').value,
+    afInstability:$('drAfInstability')?.value || 'not-applicable',
     preOac:$('drPreOac').value,
     tee:$('drTee').value,
     agent:$('drAgent').value,
@@ -638,7 +654,9 @@ function bindDoctorPanel(r) {
 }
 function advice(p) {
   const s=score(p), h=hemodynamicScreen(p), a=[];
-  if(h.level==='red') a.push('URGENT SCREEN ALERT: '+h.label+'. If instability is attributable to AF, immediate synchronized electrical cardioversion is recommended; do not delay for anticoagulation or TEE.');
+  if(hasPotentialAfRelatedInstability(p)) a.push('URGENT CLINICAL INSTABILITY SCREEN: '+h.label+'. The doctor must assess whether instability is attributable to AF. If confirmed, immediate synchronized electrical cardioversion may be required; do not delay for anticoagulation or TEE.');
+  else if(h.hypoxaemiaRed) a.push('CRITICAL LOW OXYGEN SATURATION: urgent respiratory assessment and treatment of the underlying cause are required. Low SpO₂ alone does not establish AF-related haemodynamic instability.');
+  else if(h.level==='red') a.push('URGENT SCREEN ALERT: '+h.label+'. Complete immediate bedside assessment and determine the cause.');
   else if(h.level==='amber') a.push('CAUTION: Borderline observations. Repeat and review clinically.');
   else if(h.level==='green') a.push('No predefined vital-sign red flags; bedside stability assessment remains essential.');
   else a.push('Haemodynamic screen incomplete; do not infer stability.');
@@ -949,7 +967,7 @@ $('print').onclick=()=>{
   const w=window.open('','_blank'),d=advice(r.patient);
   if(user.role==='staff') {
     const sh=staffAssessment(r.patient);
-    w.document.write(`<h1>Heartline Healthcare LLP</h1><h2>AF Staff Assessment</h2><p>Patient: ${esc(r.patient.pName)} · UHID: ${esc(r.patient.uhid)} · Age: ${esc(r.patient.age)}</p><p>HR: ${esc(r.patient.hr)} · BP: ${esc(r.patient.sbp)}/${esc(r.patient.dbp)} · SpO₂: ${esc(r.patient.spo2)}</p><p><b>${esc(sh.priority)}</b></p><p><b>Automatic screen:</b> ${esc(sh.h.label)}</p><p><b>Shock / cardioversion:</b> ${esc(sh.shockText)}</p><h3>Staff preparation checklist</h3><ul>${sh.tasks.map(t=>`<li><b>${esc(t[0])}:</b> ${esc(t[1])}</li>`).join('')}</ul><small>Staff view: medication and treatment decisions remain doctor-only.</small><script>window.print()<\/script>`);
+    w.document.write(`<h1>Heartline Healthcare LLP</h1><h2>AF Staff Assessment</h2><p>Patient: ${esc(r.patient.pName)} · UHID: ${esc(r.patient.uhid)} · Age: ${esc(r.patient.age)}</p><p>HR: ${esc(r.patient.hr)} · BP: ${esc(r.patient.sbp)}/${esc(r.patient.dbp)} · SpO₂: ${esc(r.patient.spo2)}</p><p><b>${esc(sh.priority)}</b></p><p><b>Automatic screen:</b> ${esc(sh.h.label)}</p>${sh.focusedGuidance?`<div>${sh.focusedGuidance}</div>`:''}<h3>Staff preparation checklist</h3><ul>${sh.tasks.map(t=>`<li><b>${esc(t[0])}:</b> ${esc(t[1])}</li>`).join('')}</ul><small>Staff view: medication and treatment decisions remain doctor-only.</small><script>window.print()<\/script>`);
   } else {
     const rv=doctorReviewValues(r),dd=doctorDecisionData(r,rv);
     w.document.write(`<h1>Heartline Healthcare LLP</h1><h2>AF Doctor Review</h2><p>Patient: ${esc(r.patient.pName)} · Record: ${esc(formatRecordId(r.id))} · UHID: ${esc(r.patient.uhid)}</p><p>Age: ${esc(r.patient.age)} · Sex: ${esc(r.patient.sex)} · Weight: ${esc(r.patient.weight)} kg · Creatinine: ${esc(r.patient.creatinine)} mg/dL</p><p>HR: ${esc(r.patient.hr)} · BP: ${esc(r.patient.sbp)}/${esc(r.patient.dbp)} · SpO₂: ${esc(r.patient.spo2)} · AF duration: ${esc(durationLabel(r.patient.duration))}</p><h3>CHA₂DS₂-VA ${dd.scores.va} · CHA₂DS₂-VASc ${dd.scores.vasc}</h3><h3>Cardioversion</h3><p><b>${esc(dd.cardioversion.title)}</b></p><p>${esc(dd.cardioversion.detail)}</p><p>${esc(dd.cardioversion.energy)}</p><h3>Anticoagulation</h3><p>${esc(dd.oac.text)} ${esc(dd.oac.route)}</p><h3>Renal / dose reference</h3><p>${esc(dd.renal.value===null?dd.renal.reason:`Cockcroft–Gault CrCl ${dd.renal.value.toFixed(1)} mL/min`)}</p><p>${esc(dd.dose)}</p><small>Clinical decision support only. US label references must be checked against the locally approved Indian product information before prescribing.</small><script>window.print()<\/script>`);

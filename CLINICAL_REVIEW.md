@@ -28,3 +28,8 @@ This prototype must be validated by the responsible cardiologist, pharmacy and h
 - [ ] Verify emergency call links reach the correct intended contact numbers and match the current on-call escalation process.
 - [ ] Validate the Hinglish directions and all staff checklist wording with actual staff users.
 - [ ] Reconfirm that emergency response is never delayed to complete the app wizard.
+
+- [ ] Validate the v1.5 clinical-instability criteria and thresholds against local emergency SOP; verify isolated hypoxaemia and ECG red flags do not falsely trigger the AF-attribution question or cardioversion preparation.
+- [ ] Verify parenteral UFH and enoxaparin protocols, monitoring and dose entry with pharmacy / clinical governance; app intentionally does not auto-calculate doses.
+- [ ] Validate available oral VKA choices (warfarin / acenocoumarol) and DOAC options against local formulary.
+- [ ] Confirm CBC, KFT, ABG, Troponin I and NT-proBNP options match the local investigation ordering workflow.

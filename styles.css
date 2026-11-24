@@ -102,3 +102,10 @@
 .wizard-review-grid b{display:block;font-size:12px;margin-top:3px;line-height:1.35;overflow-wrap:anywhere}
 @media(max-width:560px){.emergency-call-numbers{grid-template-columns:1fr 1fr}.emergency-call-numbers strong{font-size:17px}.wizard-review-grid{grid-template-columns:1fr}.wizard-nav button{flex:1}}
 @media print{.emergency-call-panel,.wizard-header,.wizard-nav,.wizard-validation-message{display:none!important}}
+
+/* v1.5: condition-specific staff guidance */
+.staff-cardioversion-prep{border:1px solid #d99a36;background:#fff6e8;border-radius:10px;padding:12px;margin:12px 0}
+.staff-cardioversion-prep h4{color:#8b4b00;margin:0 0 7px}
+.staff-respiratory-alert{border:1px solid #d99a36;background:#fff9ed;border-radius:10px;padding:12px;margin:12px 0}
+.staff-respiratory-alert h4{color:#76500c;margin:0 0 7px}
+.staff-cardioversion-prep p,.staff-respiratory-alert p{line-height:1.5}
