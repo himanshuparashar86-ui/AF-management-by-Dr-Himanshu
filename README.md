@@ -1,11 +1,13 @@
 # AF Management by Dr Himanshu — Heartline Healthcare LLP
 
-Free mobile-first PWA prototype (v0.2). No paid API, subscription or external JavaScript dependency.
+Free mobile-first PWA prototype (v0.3). No paid API, subscription or external JavaScript dependency.
 
 ## Run locally
 Serve this folder over localhost or HTTPS (service workers require a secure context). Example: `python -m http.server 8000`, then open `http://localhost:8000`.
 
 ## Included
+- Visible, read-only age-band and female-sex score components auto-filled from patient age and sex
+
 - Staff/doctor workspace selection and patient intake
 - AF duration, vitals, ECG and clinical history form; duration labels display in plain language
 - CHA₂DS₂-VA and CHA₂DS₂-VASc calculations with age points derived automatically from entered age and the female-sex point derived automatically from the sex field
