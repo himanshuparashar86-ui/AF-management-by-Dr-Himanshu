@@ -32,3 +32,73 @@
 .staff-check-item input{width:20px;height:20px;flex:0 0 20px;margin-top:1px;accent-color:#087b70}
 .staff-guidance{font-size:14px;line-height:1.5}
 .staff-result-head strong{font-size:17px}
+
+/* v1.1 doctor profile and patient-record access */
+.record-detail{margin:12px 0}
+.record-detail:empty{display:none}
+.empty-records{padding:14px;border:1px dashed #9fbab6;border-radius:10px;background:#f6faf9;color:#25464a;line-height:1.5}
+.empty-records p{margin:7px 0 0;font-size:14px}
+.patient button[data-id]{min-width:112px}
+
+/* v1.3 doctor record controls, treatment composer and backups */
+.treatment-builder{border:1px solid #bdd6d3;border-radius:12px;background:#f2f8f7;padding:13px;margin:16px 0 4px}
+.treatment-builder-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.treatment-builder h4{margin:0 0 8px;color:#00646b}
+.treatment-builder h5{margin:15px 0 7px;color:#22474a}
+.order-draft{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border:1px solid #d1e0de;border-radius:9px;background:#fff;padding:10px;margin:7px 0}
+.order-draft small{display:block;color:#536d70;font-size:12px;line-height:1.45;margin-top:3px;overflow-wrap:anywhere}
+.order-draft button{flex:0 0 auto}
+.favourite-row{border-top:1px solid #d5e3e1;margin-top:14px;padding-top:6px}
+.staff-order-summary{border:1px solid #b8d6d1;background:#f3f9f8;border-radius:11px;padding:12px;margin:12px 0}
+.staff-order-summary h4{margin:2px 0 9px;color:#00646b}
+.staff-order-item{background:white;border:1px solid #d7e5e3;border-radius:8px;padding:9px;margin:7px 0}
+.staff-order-item p{font-size:13px;line-height:1.5;margin:4px 0;overflow-wrap:anywhere}
+.doctor-record-actions .danger-button{background:#9b2c35;color:#fff}
+.doctor-record-actions button:disabled{opacity:.45;cursor:not-allowed}
+.doctor-backup{border:1px solid #b9d6d2;background:#f4f9f8;border-radius:12px;padding:13px;margin-top:16px}
+.doctor-backup h3{margin:4px 0 7px;color:#00646b}
+.doctor-backup h4{margin:8px 0;color:#294d50}
+@media(max-width:560px){.treatment-builder{padding:10px}.order-draft{flex-direction:column}.order-draft button{width:100%}.doctor-record-actions button{flex:1 1 100%}}
+
+
+/* v1.4 guided staff entry wizard and emergency contacts */
+.wizard-header{background:#f1f8f7;border:1px solid #c9dfdc;border-radius:12px;padding:12px;margin:12px 0 14px;scroll-margin-top:75px}
+.wizard-heading-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wizard-heading-row small{font-size:10px;letter-spacing:.08em;font-weight:800;color:#547173}
+.wizard-heading-row h3{margin:3px 0;color:#00646b;font-size:18px}
+.wizard-heading-row>b{background:#dcefeb;color:#00646b;border-radius:30px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.wizard-progress{height:7px;background:#dbe8e6;border-radius:10px;overflow:hidden;margin-top:10px}
+.wizard-progress span{display:block;height:100%;width:25%;background:#007a72;border-radius:10px;transition:width .2s ease}
+.wizard-page{border:1px solid #dce8e7;border-radius:12px;padding:12px;margin:10px 0;background:#fff}
+.wizard-page>h4{margin:0 0 4px;color:#00646b;font-size:17px}
+.wizard-page label:has([required])::after{content:""}
+.wizard-page input:required:invalid,.wizard-page select:required:invalid{border-color:#be7474;background:#fffafa}
+.wizard-nav{display:flex;justify-content:space-between;gap:10px;margin:12px 0}
+.wizard-nav button{min-width:110px}
+.wizard-nav button:disabled{opacity:.42;cursor:not-allowed}
+.wizard-validation-message{color:#9b2c35;font-size:12px;font-weight:700;margin:5px 2px 14px}
+.wizard-final-actions{border-top:1px solid #dce7e7;padding-top:12px}
+.emergency-call-panel{position:sticky;top:68px;z-index:1;background:#fff1f1;border:1px solid #e4b4b6;border-left:5px solid #a92e36;border-radius:12px;padding:10px;margin:10px 0 14px;box-shadow:0 2px 8px #20332210}
+.emergency-call-heading{display:flex;flex-direction:column;gap:3px;color:#86242b}
+.emergency-call-heading b{font-size:14px}
+.emergency-call-heading span{font-size:12px;line-height:1.35}
+.emergency-call-numbers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.emergency-call-numbers a{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:#173c40;background:white;border:1px solid #e4cccc;border-radius:9px;padding:8px}
+.emergency-call-numbers a.call-primary{border-color:#bb565d;background:#fffafa}
+.emergency-call-numbers small{font-size:10px;color:#5f7477}
+.emergency-call-numbers strong{font-size:19px;letter-spacing:.02em;color:#9b252e}
+.emergency-call-numbers span{font-size:10px;color:#00646b;font-weight:800}
+.risk-score-live{background:#f0f8f7;border:1px solid #bad8d3;border-radius:11px;padding:12px;margin:10px 0}
+.risk-score-live> b{display:block;color:#00646b}
+.risk-score-values{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.risk-score-values>div{background:white;border:1px solid #dce8e7;border-radius:8px;padding:10px}
+.risk-score-values small,.wizard-review-grid small{display:block;color:#65797b;font-size:11px}
+.risk-score-values strong{display:block;font-size:24px;color:#00646b}
+.score-warning{background:#fff6e8;border-left:4px solid #b7791f;border-radius:7px;padding:9px;font-size:12px;line-height:1.45;color:#654b1b}
+.wizard-final-review{background:#f1f8f7;border:1px solid #c9dfdc;border-radius:10px;padding:11px;margin:10px 0}
+.wizard-final-review h4{margin:0 0 9px;color:#00646b}
+.wizard-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wizard-review-grid>div{background:white;border:1px solid #dce8e7;border-radius:8px;padding:8px}
+.wizard-review-grid b{display:block;font-size:12px;margin-top:3px;line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:560px){.emergency-call-numbers{grid-template-columns:1fr 1fr}.emergency-call-numbers strong{font-size:17px}.wizard-review-grid{grid-template-columns:1fr}.wizard-nav button{flex:1}}
+@media print{.emergency-call-panel,.wizard-header,.wizard-nav,.wizard-validation-message{display:none!important}}

@@ -1,4 +1,4 @@
-# Clinical references — AF Management v0.9
+# Clinical references — AF Management v1.4
 
 ## Single guideline framework
 **2024 ESC Guidelines for the management of atrial fibrillation** (AF-CARE framework).  

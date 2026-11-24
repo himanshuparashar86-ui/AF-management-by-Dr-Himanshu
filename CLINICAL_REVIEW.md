@@ -1,4 +1,4 @@
-# Clinical review checklist — AF Management v0.8
+# Clinical review checklist — AF Management v1.4
 This prototype must be validated by the responsible cardiologist, pharmacy and hospital governance team before patient care use.
 
 - [ ] Validate CHA₂DS₂-VA and CHA₂DS₂-VASc inputs and score thresholds.
@@ -19,3 +19,12 @@ This prototype must be validated by the responsible cardiologist, pharmacy and h
 - [ ] Ensure no checklist wording authorizes staff to independently decide cardioversion, select medicines/doses, administer sedation or deliver a shock.
 - [ ] Validate consent wording and emergency-consent exceptions with hospital policy.
 - [ ] Validate Hindi/Hinglish translations with actual staff users before deployment.
+
+
+## v1.4 staff wizard and contacts validation
+- [ ] Validate the mandatory/optional field map with nursing and medical leadership.
+- [ ] Verify all Yes/No/Unknown risk-factor selections and the provisional score warning, especially that Unknown is not treated as No.
+- [ ] Test page progression on a phone: incomplete required fields must block Next; completed fields must permit Next; Back must retain entries.
+- [ ] Verify emergency call links reach the correct intended contact numbers and match the current on-call escalation process.
+- [ ] Validate the Hinglish directions and all staff checklist wording with actual staff users.
+- [ ] Reconfirm that emergency response is never delayed to complete the app wizard.
