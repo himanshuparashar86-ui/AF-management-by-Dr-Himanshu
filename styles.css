@@ -12,3 +12,42 @@
 .auto-score-grid-three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .auto-score-grid-three b{color:#00646b;font-size:15px}
 @media(max-width:680px){.auto-score-grid-three{grid-template-columns:1fr}}
+
+.hemo-panel{border:1px solid #cbdcde;border-left:5px solid #64777a;background:#f5f8f8;border-radius:11px;padding:13px;margin:12px 0}
+.hemo-panel.level-red{background:#fff0f0;border-color:#b32632}
+.hemo-panel.level-amber{background:#fff7e6;border-color:#b7791f}
+.hemo-panel.level-green{background:#edf8f2;border-color:#21834c}
+.hemo-panel.level-incomplete{background:#f5f8f8;border-color:#64777a}
+.hemo-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;color:#00646b}
+.hemo-badge{display:inline-block;border-radius:99px;padding:4px 9px;background:#e7eeee;color:#40575a;font-size:11px;font-weight:800}
+.level-red .hemo-badge{background:#fbd6d8;color:#971e29}
+.level-amber .hemo-badge{background:#ffebbf;color:#805400}
+.level-green .hemo-badge{background:#d9f0e2;color:#16653a}
+.hemo-panel>strong{display:block;font-size:15px;margin:4px 0}
+.hemo-panel p{margin:5px 0 7px;font-size:13px}
+.hemo-panel small{display:block;color:#63777a;font-size:11px;line-height:1.4}
+.clinical-check-note{font-size:12px;background:#eef5f5;padding:9px;border-radius:8px;margin-top:14px}
+
+.staff-guidance{border:1px solid #cbdcde;border-left:5px solid #64777a;background:#f5f8f8;border-radius:10px;padding:12px;margin:10px 0 14px}
+.staff-guidance.urgent{background:#fff0f0;border-color:#b32632}
+.staff-guidance.caution{background:#fff7e6;border-color:#b7791f}
+.staff-guidance b{display:block;color:#00646b}
+.staff-guidance p{margin:5px 0;font-size:13px}
+.staff-guidance small{color:#63777a;font-size:11px}
+.staff-result{border:1px solid #d4e2e2;border-radius:11px;padding:14px;background:#f7faf9;color:#183338}
+.staff-result.urgent{background:#fff0f0;border-color:#b32632}
+.staff-result.caution{background:#fff7e6;border-color:#b7791f}
+.staff-result.normal{background:#f1faf5;border-color:#21834c}
+.staff-result-head{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.staff-result-head small{font-size:10px;letter-spacing:.08em;font-weight:800;color:#60777a}
+.staff-result-head strong{font-size:17px}
+.staff-result h4{margin:14px 0 5px;color:#00646b}
+.staff-result p{font-size:13px;line-height:1.45;margin:6px 0}
+.staff-task-list{list-style:none;padding:0;margin:7px 0}
+.staff-task-list li{margin:7px 0}
+.staff-task{display:flex;align-items:flex-start;gap:9px;background:#fff;border:1px solid #dce7e7;border-radius:8px;padding:9px;font-weight:400}
+.staff-task input{width:auto;min-height:auto;margin:2px 0 0;flex:0 0 auto}
+.staff-task span{display:block}
+.staff-task b{font-size:13px}
+.staff-task small{display:block;color:#5f7477;font-size:12px;margin-top:2px}
+.staff-no-treatment{background:#e7f0f0;border-radius:8px;padding:10px;margin-top:12px!important;font-size:12px!important}
