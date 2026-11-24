@@ -8,3 +8,7 @@
 .auto-score-grid b{display:block;font-size:14px;margin:3px 0;color:#183338}
 .auto-score-note{display:block;margin-top:8px;color:#60777a;font-size:11px}
 @media(max-width:560px){.auto-score-grid{grid-template-columns:1fr}}
+
+.auto-score-grid-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.auto-score-grid-three b{color:#00646b;font-size:15px}
+@media(max-width:680px){.auto-score-grid-three{grid-template-columns:1fr}}

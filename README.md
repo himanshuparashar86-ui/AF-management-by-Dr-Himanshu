@@ -1,6 +1,6 @@
 # AF Management by Dr Himanshu — Heartline Healthcare LLP
 
-Free mobile-first PWA prototype (v0.3). No paid API, subscription or external JavaScript dependency.
+Free mobile-first PWA prototype (v0.4). No paid API, subscription or external JavaScript dependency.
 
 ## Run locally
 Serve this folder over localhost or HTTPS (service workers require a secure context). Example: `python -m http.server 8000`, then open `http://localhost:8000`.
