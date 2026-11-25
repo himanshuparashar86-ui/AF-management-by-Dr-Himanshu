@@ -1,11 +1,13 @@
 {
-  "name": "AF Management by Dr. Himanshu Parashar",
-  "short_name": "AF Management",
+  "id": "./",
+  "name": "AF Management by Dr. Himanshu Parashar \u2014 Doctor App",
+  "short_name": "AF Doctor",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f7f7",
   "theme_color": "#00646b",
-  "description": "Offline-first AF workflow and clinical decision support for Heartline Healthcare LLP \u00b7 v1.9",
+  "description": "Offline-first AF clinical workflow for Heartline Healthcare LLP. Doctor-only build.",
   "icons": [
     {
       "src": "icon-192.png",
@@ -17,6 +19,12 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

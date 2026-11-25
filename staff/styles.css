@@ -1,0 +1,149 @@
+*{box-sizing:border-box}body{margin:0;background:#f3f7f7;color:#183338;font:15px system-ui}header{background:#00646b;color:white;padding:15px 5%;position:sticky;top:0;z-index:2;font-weight:800;font-size:18px}header small{display:block;color:#d5efeb;font-size:12px}main{max-width:850px;margin:16px auto;padding:0 13px}aside{background:#fff3d6;padding:12px;border-radius:10px;margin-bottom:14px;font-size:13px}.card{background:white;border:1px solid #dce7e7;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 3px 12px #1232}.hidden{display:none!important}.bar{display:flex;justify-content:space-between;align-items:center;gap:10px}nav{display:flex;gap:7px;margin:12px 0;flex-wrap:wrap}button{border:0;border-radius:9px;padding:11px 14px;background:#00646b;color:white;font-weight:700;cursor:pointer}.light{background:#dff2ef;color:#00646b}label{display:block;margin:10px 0;font-size:13px;font-weight:650}input,select,textarea{display:block;width:100%;padding:10px;margin-top:5px;border:1px solid #cbdada;border-radius:8px;font:inherit;background:white}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.group{font-weight:800;color:#00646b;border-bottom:1px solid #dce7e7;padding:16px 0 5px}.checks{display:grid;grid-template-columns:repeat(2,1fr)}.checks input{display:inline;width:auto}.checks label{font-weight:400}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}.result{background:#eef8f6;border-left:4px solid #00646b;padding:12px;margin:14px 0}.result.danger{background:#fff0f0;border-color:#a52c32}.result li{margin:7px 0}.patient{border:1px solid #dce7e7;padding:12px;border-radius:10px;margin:8px 0;display:flex;justify-content:space-between;gap:8px}.hint{font-size:12px;color:#65797b}footer{text-align:center;padding:20px;color:#65797b;font-size:11px}@media(max-width:560px){.grid,.checks{grid-template-columns:1fr}.actions button{flex:1 1 100%}}@media print{header,aside,nav,button,footer{display:none!important}body{background:white}.card{box-shadow:none;border:0}}
+.auto-score{border:1px solid #b9dcd7;background:#f1faf8;border-radius:11px;padding:12px;margin:8px 0 16px;color:#183338}.auto-score>strong{display:block;color:#00646b;font-size:13px;margin-bottom:9px}.auto-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.auto-score-grid>div{background:white;border:1px solid #dcebea;border-radius:8px;padding:9px}.auto-score-grid small,.auto-score-grid span{display:block;color:#60777a;font-size:11px}.auto-score-grid b{display:block;font-size:14px;margin:3px 0;color:#183338}.auto-score-note{display:block;margin-top:8px;color:#60777a;font-size:11px}@media(max-width:560px){.auto-score-grid{grid-template-columns:1fr}}.auto-score-grid-three{grid-template-columns:repeat(3,minmax(0,1fr))}.auto-score-grid-three b{color:#00646b;font-size:15px}@media(max-width:680px){.auto-score-grid-three{grid-template-columns:1fr}}
+.hemo-panel{border:1px solid #cbdcde;border-left:5px solid #64777a;background:#f5f8f8;border-radius:11px;padding:13px;margin:12px 0}.hemo-panel.level-red{background:#fff0f0;border-color:#b32632}.hemo-panel.level-amber{background:#fff7e6;border-color:#b7791f}.hemo-panel.level-green{background:#edf8f2;border-color:#21834c}.hemo-panel.level-incomplete{background:#f5f8f8;border-color:#64777a}.hemo-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;color:#00646b}.hemo-badge{display:inline-block;border-radius:99px;padding:4px 9px;background:#e7eeee;color:#40575a;font-size:11px;font-weight:800}.level-red .hemo-badge{background:#fbd6d8;color:#971e29}.level-amber .hemo-badge{background:#ffebbf;color:#805400}.level-green .hemo-badge{background:#d9f0e2;color:#16653a}.hemo-panel>strong{display:block;font-size:15px;margin:4px 0}.hemo-panel p{margin:5px 0 7px;font-size:13px}.hemo-panel small{display:block;color:#63777a;font-size:11px;line-height:1.4}.clinical-check-note{font-size:12px;background:#eef5f5;padding:9px;border-radius:8px;margin-top:14px}
+.staff-guidance{border:1px solid #cbdcde;border-left:5px solid #64777a;background:#f5f8f8;border-radius:10px;padding:12px;margin:10px 0 14px}.staff-guidance.urgent{background:#fff0f0;border-color:#b32632}.staff-guidance.caution{background:#fff7e6;border-color:#b7791f}.staff-guidance b{display:block;color:#00646b}.staff-guidance p{margin:5px 0;font-size:13px}.staff-guidance small{color:#63777a;font-size:11px}.staff-result{border:1px solid #d4e2e2;border-radius:11px;padding:14px;background:#f7faf9;color:#183338}.staff-result.urgent{background:#fff0f0;border-color:#b32632}.staff-result.caution{background:#fff7e6;border-color:#b7791f}.staff-result.normal{background:#f1faf5;border-color:#21834c}.staff-result-head{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.staff-result-head small{font-size:10px;letter-spacing:.08em;font-weight:800;color:#60777a}.staff-result-head strong{font-size:17px}.staff-result h4{margin:14px 0 5px;color:#00646b}.staff-result p{font-size:13px;line-height:1.45;margin:6px 0}.staff-task-list{list-style:none;padding:0;margin:7px 0}.staff-task-list li{margin:7px 0}.staff-task{display:flex;align-items:flex-start;gap:9px;background:#fff;border:1px solid #dce7e7;border-radius:8px;padding:9px;font-weight:400}.staff-task input{width:auto;min-height:auto;margin:2px 0 0;flex:0 0 auto}.staff-task span{display:block}.staff-task b{font-size:13px}.staff-task small{display:block;color:#5f7477;font-size:12px;margin-top:2px}.staff-no-treatment{background:#e7f0f0;border-radius:8px;padding:10px;margin-top:12px!important;font-size:12px!important}
+
+/* v0.8 doctor decision support */
+.doctor-panel{border:1px solid #cfdede;border-radius:12px;padding:13px;margin:14px 0;background:#f8fbfb}
+.doctor-panel>h4{margin:0 0 8px;color:#00646b;font-size:16px}
+.score-strip{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
+.score-strip b{background:#e7f2f1;color:#005d64;padding:8px 11px;border-radius:9px;font-size:14px}
+.doctor-card{border:1px solid #d6e2e2;border-left:5px solid #64777a;border-radius:10px;padding:12px;margin:10px 0;background:#fff}
+.doctor-card.urgent{background:#fff0f0;border-color:#b32632;border-left-color:#b32632}
+.doctor-card.caution{background:#fff6e5;border-color:#b7791f;border-left-color:#b7791f}
+.doctor-card.normal{background:#eef8f2;border-color:#21834c;border-left-color:#21834c}
+.doctor-card small{display:block;color:#60777a;font-size:10px;font-weight:800;letter-spacing:.06em;margin-bottom:5px}
+.doctor-card h4{margin:3px 0 8px;font-size:15px;color:#183338}
+.doctor-card p{font-size:13px;line-height:1.45;margin:6px 0}
+.renal-card{background:#f1f7fa;border-left-color:#26718a}
+.clinical-footnote{font-size:11px;color:#617679;background:#eef3f3;border-radius:8px;padding:10px;margin:12px 0}
+.doctor-decision{margin:12px 0}
+.doctor-panel select{min-height:43px}
+@media(max-width:560px){.score-strip{display:grid;grid-template-columns:1fr 1fr}.doctor-panel{padding:10px}}
+
+/* v1.0 staff-friendly workflow */
+.staff-approved-workflow{background:#f3f8f7;border:1px solid #b9d6d2;border-radius:12px;padding:13px;margin:14px 0;color:#183338}
+.staff-workflow-title{display:flex;flex-direction:column;gap:4px}
+.staff-workflow-title b{font-size:16px;color:#00646b}
+.staff-workflow-title small,.staff-approved-workflow .hint{color:#587174}
+.staff-approved-workflow p{font-size:13px;line-height:1.5}
+.staff-checklist{display:grid;gap:9px;margin:12px 0}
+.staff-check-item{display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid #d5e3e1;border-radius:9px;padding:10px;font-size:14px;line-height:1.45}
+.staff-check-item input{width:20px;height:20px;flex:0 0 20px;margin-top:1px;accent-color:#087b70}
+.staff-guidance{font-size:14px;line-height:1.5}
+.staff-result-head strong{font-size:17px}
+
+/* v1.1 doctor profile and patient-record access */
+.record-detail{margin:12px 0}
+.record-detail:empty{display:none}
+.empty-records{padding:14px;border:1px dashed #9fbab6;border-radius:10px;background:#f6faf9;color:#25464a;line-height:1.5}
+.empty-records p{margin:7px 0 0;font-size:14px}
+.patient button[data-id]{min-width:112px}
+
+/* v1.3 doctor record controls, treatment composer and backups */
+.treatment-builder{border:1px solid #bdd6d3;border-radius:12px;background:#f2f8f7;padding:13px;margin:16px 0 4px}
+.treatment-builder-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.treatment-builder h4{margin:0 0 8px;color:#00646b}
+.treatment-builder h5{margin:15px 0 7px;color:#22474a}
+.order-draft{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border:1px solid #d1e0de;border-radius:9px;background:#fff;padding:10px;margin:7px 0}
+.order-draft small{display:block;color:#536d70;font-size:12px;line-height:1.45;margin-top:3px;overflow-wrap:anywhere}
+.order-draft button{flex:0 0 auto}
+.favourite-row{border-top:1px solid #d5e3e1;margin-top:14px;padding-top:6px}
+.staff-order-summary{border:1px solid #b8d6d1;background:#f3f9f8;border-radius:11px;padding:12px;margin:12px 0}
+.staff-order-summary h4{margin:2px 0 9px;color:#00646b}
+.staff-order-item{background:white;border:1px solid #d7e5e3;border-radius:8px;padding:9px;margin:7px 0}
+.staff-order-item p{font-size:13px;line-height:1.5;margin:4px 0;overflow-wrap:anywhere}
+.doctor-record-actions .danger-button{background:#9b2c35;color:#fff}
+.doctor-record-actions button:disabled{opacity:.45;cursor:not-allowed}
+.doctor-backup{border:1px solid #b9d6d2;background:#f4f9f8;border-radius:12px;padding:13px;margin-top:16px}
+.doctor-backup h3{margin:4px 0 7px;color:#00646b}
+.doctor-backup h4{margin:8px 0;color:#294d50}
+@media(max-width:560px){.treatment-builder{padding:10px}.order-draft{flex-direction:column}.order-draft button{width:100%}.doctor-record-actions button{flex:1 1 100%}}
+
+
+/* v1.4 guided staff entry wizard and emergency contacts */
+.wizard-header{background:#f1f8f7;border:1px solid #c9dfdc;border-radius:12px;padding:12px;margin:12px 0 14px;scroll-margin-top:75px}
+.wizard-heading-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wizard-heading-row small{font-size:10px;letter-spacing:.08em;font-weight:800;color:#547173}
+.wizard-heading-row h3{margin:3px 0;color:#00646b;font-size:18px}
+.wizard-heading-row>b{background:#dcefeb;color:#00646b;border-radius:30px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.wizard-progress{height:7px;background:#dbe8e6;border-radius:10px;overflow:hidden;margin-top:10px}
+.wizard-progress span{display:block;height:100%;width:25%;background:#007a72;border-radius:10px;transition:width .2s ease}
+.wizard-page{border:1px solid #dce8e7;border-radius:12px;padding:12px;margin:10px 0;background:#fff}
+.wizard-page>h4{margin:0 0 4px;color:#00646b;font-size:17px}
+.wizard-page label:has([required])::after{content:""}
+.wizard-page input:required:invalid,.wizard-page select:required:invalid{border-color:#be7474;background:#fffafa}
+.wizard-nav{display:flex;justify-content:space-between;gap:10px;margin:12px 0}
+.wizard-nav button{min-width:110px}
+.wizard-nav button:disabled{opacity:.42;cursor:not-allowed}
+.wizard-validation-message{color:#9b2c35;font-size:12px;font-weight:700;margin:5px 2px 14px}
+.wizard-final-actions{border-top:1px solid #dce7e7;padding-top:12px}
+.emergency-call-panel{position:sticky;top:68px;z-index:1;background:#fff1f1;border:1px solid #e4b4b6;border-left:5px solid #a92e36;border-radius:12px;padding:10px;margin:10px 0 14px;box-shadow:0 2px 8px #20332210}
+.emergency-call-heading{display:flex;flex-direction:column;gap:3px;color:#86242b}
+.emergency-call-heading b{font-size:14px}
+.emergency-call-heading span{font-size:12px;line-height:1.35}
+.emergency-call-numbers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.emergency-call-numbers a{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:#173c40;background:white;border:1px solid #e4cccc;border-radius:9px;padding:8px}
+.emergency-call-numbers a.call-primary{border-color:#bb565d;background:#fffafa}
+.emergency-call-numbers small{font-size:10px;color:#5f7477}
+.emergency-call-numbers strong{font-size:19px;letter-spacing:.02em;color:#9b252e}
+.emergency-call-numbers span{font-size:10px;color:#00646b;font-weight:800}
+.risk-score-live{background:#f0f8f7;border:1px solid #bad8d3;border-radius:11px;padding:12px;margin:10px 0}
+.risk-score-live> b{display:block;color:#00646b}
+.risk-score-values{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.risk-score-values>div{background:white;border:1px solid #dce8e7;border-radius:8px;padding:10px}
+.risk-score-values small,.wizard-review-grid small{display:block;color:#65797b;font-size:11px}
+.risk-score-values strong{display:block;font-size:24px;color:#00646b}
+.score-warning{background:#fff6e8;border-left:4px solid #b7791f;border-radius:7px;padding:9px;font-size:12px;line-height:1.45;color:#654b1b}
+.wizard-final-review{background:#f1f8f7;border:1px solid #c9dfdc;border-radius:10px;padding:11px;margin:10px 0}
+.wizard-final-review h4{margin:0 0 9px;color:#00646b}
+.wizard-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wizard-review-grid>div{background:white;border:1px solid #dce8e7;border-radius:8px;padding:8px}
+.wizard-review-grid b{display:block;font-size:12px;margin-top:3px;line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:560px){.emergency-call-numbers{grid-template-columns:1fr 1fr}.emergency-call-numbers strong{font-size:17px}.wizard-review-grid{grid-template-columns:1fr}.wizard-nav button{flex:1}}
+@media print{.emergency-call-panel,.wizard-header,.wizard-nav,.wizard-validation-message{display:none!important}}
+
+/* v1.5: condition-specific staff guidance */
+.staff-cardioversion-prep{border:1px solid #d99a36;background:#fff6e8;border-radius:10px;padding:12px;margin:12px 0}
+.staff-cardioversion-prep h4{color:#8b4b00;margin:0 0 7px}
+.staff-respiratory-alert{border:1px solid #d99a36;background:#fff9ed;border-radius:10px;padding:12px;margin:12px 0}
+.staff-respiratory-alert h4{color:#76500c;margin:0 0 7px}
+.staff-cardioversion-prep p,.staff-respiratory-alert p{line-height:1.5}
+
+/* v1.6 WhatsApp handover feedback */
+.share-status{margin:10px 0;padding:10px 12px;border:1px solid #b7d8d2;background:#f0f8f6;color:#23494a;border-radius:9px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.share-status a{display:inline-block;margin-left:5px;color:#00646b;font-weight:800;text-decoration:underline}
+
+/* v1.8 offline staff profiles and mandatory weekly backup */
+.doctor-login-note{background:#eef8f6;border:1px solid #bddbd5;border-radius:10px;padding:12px;margin:12px 0;color:#00646b;display:flex;flex-direction:column;gap:3px}
+.doctor-login-note small{font-size:12px;color:#5d7375}
+.staff-login-panel{background:#f6faf9;border:1px solid #d8e5e3;border-radius:11px;padding:12px;margin:12px 0}
+.staff-profile-create{align-items:end}
+.staff-profile-create-action{padding-bottom:10px}
+.staff-profile-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #d7e4e2;background:#fbfdfd;border-radius:10px;padding:11px;margin:8px 0}
+.staff-profile-row small{display:block;color:#617679;font-size:11px;margin-top:3px}
+.staff-profile-actions{display:flex;gap:7px;flex-wrap:wrap}
+.staff-profile-actions button{padding:8px 10px;font-size:12px}
+.weekly-backup-gate{position:fixed;inset:0;z-index:1000;background:rgba(12,35,38,.82);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.weekly-backup-card{width:min(540px,100%);background:#fff;border-radius:18px;padding:22px;box-shadow:0 18px 60px #0005;color:#183338;max-height:95vh;overflow:auto}
+.weekly-backup-icon{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#fff0d8;color:#9a5b00;font-size:30px;font-weight:800}
+.weekly-backup-card h2{margin:12px 0 7px;color:#8d4c00}
+.weekly-backup-card p{line-height:1.5}
+.weekly-backup-includes{background:#f4f8f7;border:1px solid #d7e4e2;border-radius:10px;padding:9px 13px;margin:12px 0;font-size:13px}
+.weekly-backup-includes ul{margin:4px 0;padding-left:19px}
+.weekly-backup-action{width:100%;min-height:52px;font-size:16px;background:#00786f;margin:8px 0}
+.weekly-emergency{border:1px solid #e1b4b7;background:#fff3f3;border-radius:10px;padding:10px;margin-top:14px;display:flex;flex-direction:column;gap:7px}
+.weekly-emergency a{color:#922b32;font-weight:800}
+body.backup-locked{overflow:hidden}
+.active-tab{box-shadow:inset 0 -3px 0 #bde5df}
+@media(max-width:560px){.staff-profile-row{align-items:flex-start;flex-direction:column}.staff-profile-actions{width:100%}.staff-profile-actions button{flex:1}}
+
+/* v1.9 split PWA build: STAFF */
+body.app-staff #role { display:none !important; }
+.pin-login-panel { display:grid; gap:10px; margin-top:14px; }
+.pin-login-panel input { min-height:46px; font-size:18px; letter-spacing:3px; }
+#pinConfirmWrap { display:block; }
+#staffProfileSelect { display:none !important; }
+
+body.app-staff #doctorLoginNote, body.app-staff #doctorBackup, body.app-staff #staffAdminTab, body.app-staff #staffAdmin { display:none !important; }
+body.app-staff #staffBackupPanel { display:block; }

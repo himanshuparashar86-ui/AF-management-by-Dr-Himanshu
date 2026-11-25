@@ -1,33 +1,18 @@
-# AF Management v1.9 — Technical Reliability Update
+# v1.9 — Separate Doctor and Staff PWAs
 
-**Baseline:** v1.8 offline-first PWA.
+- Split the former combined app into two separately installable PWA builds under `/doctor/` and `/staff/`.
+- Doctor build is fixed to Dr. Himanshu Parashar, English; no role selector or switch-user control is shown.
+- Staff build is Staff-only, Hinglish; staff must import a doctor-issued profile invitation and the installation binds to one profile. No Doctor Mode, staff directory, doctor decision or treatment approval controls are shown.
+- Added local PIN setup/unlock using PBKDF2 via Web Crypto. PIN hashes are device-local and excluded from backups.
+- Added separate app-specific localStorage namespaces and service-worker cache prefixes/scopes. Doctor build can migrate legacy v1.8 local records on the same origin.
+- Retained four-step patient wizard, mandatory-field validation, risk scores, conditional instability/cardioversion workflow, doctor treatment builder, favourites, edit/delete, WhatsApp TXT handover, backup/restore and weekly mandatory backup gate.
+- Staff invitation TXT, staff-owned TXT backup, doctor full JSON backup and manual two-way patient/treatment transfer remain available.
+- Share action triggers a separate TXT download first, then requests native file sharing where supported; desktop WhatsApp Web requires manual attachment.
+- Added a Staff-only root landing page, app-specific install manifests/icons and a static `tests/` folder.
+- Updated service workers to cache both PNG install icons and use separate cache names.
 
-## Implemented
-- Added record/profile revision metadata and stale-import protection for patient handovers, staff profiles, staff backups and full-backup merge operations.
-- Added conflict confirmations for ambiguous legacy/equal-revision imports and for replacing an existing doctor-approved record.
-- Added treatment-plan revision and approval timestamp visibility in the staff patient view.
-- Patient-data edits after approval now mark the previous plan `Needs re-approval`; staff are shown an outdated-plan warning and are not shown the old approved order workflow as current.
-- Weekly backup gate no longer unlocks merely because a download was triggered. User must confirm seeing the generated file; cancellation leaves the gate locked.
-- Added unique timestamp/randomized export filenames.
-- Added staff-scoped autosaved wizard drafts and resume behavior after app interruption; includes pending-record edit identity.
-- Added schema/type checks, duplicate-ID checks and versioned SHA-256 integrity checks for new TXT transfer/profile/backup payloads. Legacy formats remain supported where documented.
-- Added explicit handling for blocked print popups.
-- Added local-storage quota/write error handling and cross-tab storage-change detection.
-- Changed service worker to cache-first with bounded network refresh, offline navigation fallback and a new-version banner.
-- Added 192/512 PNG app icons and Apple touch icon; requests persistent storage where supported.
-- Reduced WhatsApp message text to a record reference/plan revision; patient information remains in the attached TXT file.
-- Staff may correct their own Pending review records. Staff backup excludes doctor favourites and unrelated data.
-- Added reproducible unit/static and browser smoke-test scripts, plus a test report.
+## Not changed
 
-## Explicitly not changed
-- No clinical calculation, score, threshold, medication selection, dose formula, dose-reference text, cardioversion logic, or clinical pathway wording was changed.
-- ESC 2024 remains the only AF guideline framework represented by the application.
-- No cloud backend, internet sync, or automatic cross-device synchronisation was added.
-- No staff PIN/security authentication was added.
-- The cardiologist/pharmacy questions in `CLINICAL_DECISIONS_PENDING.md` remain pending and require Dr. Himanshu's explicit decision before any implementation.
-
-## Important limitations
-- Manual WhatsApp/file transfer remains necessary between devices.
-- SHA-256 detects accidental alteration but does not authenticate the sender and does not encrypt the file.
-- Download confirmation cannot prove that the exported file was saved to a separate safe location.
-- Offline profile deactivation only takes effect on another device after that device imports the newer profile file.
+- No cloud database, server-side accounts, or automatic device synchronization.
+- No medication dose defaults or formulas were added or changed.
+- No clinical pathway was independently validated in this build.
