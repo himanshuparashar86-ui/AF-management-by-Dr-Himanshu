@@ -41,3 +41,22 @@ This prototype must be validated by the responsible cardiologist, pharmacy and h
 - [ ] Verify WhatsApp TXT transfer on the actual clinic desktop/browser and staff mobile devices.
 - [ ] Confirm all transfers are sent only to the intended authorised recipient; the TXT file contains identifiable patient information.
 - [ ] Retain the structured transfer section intact; do not edit the TXT file after export.
+
+
+## v1.8 operational validation
+- [ ] Confirm each doctor-created staff profile invitation imports on a clean device and selects the correct staff profile.
+- [ ] Confirm profile ID ownership filtering and legacy name-based record access.
+- [ ] Confirm staff TXT backup restores profile, patient records, orders, checklists and relevant history to a clean device.
+- [ ] Confirm Doctor JSON backup includes staff directory and all records on the doctor device.
+- [ ] Confirm weekly backup gate blocks normal patient/doctor work after seven days and unlocks only after backup generation.
+- [ ] Confirm staff emergency phone links remain available while backup gate is active.
+- [ ] Verify staff profile invitations and backups are transferred only to intended recipients; they contain personally identifiable information.
+- [ ] Verify actual backup files are stored securely outside the PWA; the app cannot verify where the downloaded file is retained.
+- [ ] Test all workflows on actual staff Android phones and the doctor's phone before real-patient use.
+
+
+## v1.9 technical-only review note
+- The v1.9 code changes are limited to import/restore revision safety, backup confirmation, approved-plan invalidation after patient-data edits, wizard draft persistence, schema/integrity checks, storage/print/PWA reliability, transfer-message privacy and reproducible tests.
+- The clinical functions fingerprinted in `tests/static-regression.test.js` are required to remain byte-for-byte identical to v1.8. This is an automated regression guard, not proof of clinical validity.
+- All questions under `CLINICAL_DECISIONS_PENDING.md` remain undecided and are not code tasks until Dr. Himanshu explicitly approves them.
+- Reproducible test instructions and results are in `TEST_REPORT_v1.9.md` and `tests/`.

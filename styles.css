@@ -113,3 +113,32 @@
 /* v1.6 WhatsApp handover feedback */
 .share-status{margin:10px 0;padding:10px 12px;border:1px solid #b7d8d2;background:#f0f8f6;color:#23494a;border-radius:9px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 .share-status a{display:inline-block;margin-left:5px;color:#00646b;font-weight:800;text-decoration:underline}
+
+/* v1.8 offline staff profiles and mandatory weekly backup */
+.doctor-login-note{background:#eef8f6;border:1px solid #bddbd5;border-radius:10px;padding:12px;margin:12px 0;color:#00646b;display:flex;flex-direction:column;gap:3px}
+.doctor-login-note small{font-size:12px;color:#5d7375}
+.staff-login-panel{background:#f6faf9;border:1px solid #d8e5e3;border-radius:11px;padding:12px;margin:12px 0}
+.staff-profile-create{align-items:end}
+.staff-profile-create-action{padding-bottom:10px}
+.staff-profile-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #d7e4e2;background:#fbfdfd;border-radius:10px;padding:11px;margin:8px 0}
+.staff-profile-row small{display:block;color:#617679;font-size:11px;margin-top:3px}
+.staff-profile-actions{display:flex;gap:7px;flex-wrap:wrap}
+.staff-profile-actions button{padding:8px 10px;font-size:12px}
+.weekly-backup-gate{position:fixed;inset:0;z-index:1000;background:rgba(12,35,38,.82);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.weekly-backup-card{width:min(540px,100%);background:#fff;border-radius:18px;padding:22px;box-shadow:0 18px 60px #0005;color:#183338;max-height:95vh;overflow:auto}
+.weekly-backup-icon{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#fff0d8;color:#9a5b00;font-size:30px;font-weight:800}
+.weekly-backup-card h2{margin:12px 0 7px;color:#8d4c00}
+.weekly-backup-card p{line-height:1.5}
+.weekly-backup-includes{background:#f4f8f7;border:1px solid #d7e4e2;border-radius:10px;padding:9px 13px;margin:12px 0;font-size:13px}
+.weekly-backup-includes ul{margin:4px 0;padding-left:19px}
+.weekly-backup-action{width:100%;min-height:52px;font-size:16px;background:#00786f;margin:8px 0}
+.weekly-emergency{border:1px solid #e1b4b7;background:#fff3f3;border-radius:10px;padding:10px;margin-top:14px;display:flex;flex-direction:column;gap:7px}
+.weekly-emergency a{color:#922b32;font-weight:800}
+body.backup-locked{overflow:hidden}
+.active-tab{box-shadow:inset 0 -3px 0 #bde5df}
+@media(max-width:560px){.staff-profile-row{align-items:flex-start;flex-direction:column}.staff-profile-actions{width:100%}.staff-profile-actions button{flex:1}}
+
+/* v1.9 reliability controls */
+.app-update-banner{position:sticky;bottom:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#e8f1f2;border:1px solid #9ebdc0;border-radius:12px;margin:12px auto;max-width:1100px;color:#17393d}
+.app-update-banner.hidden{display:none}
+.alert-warning{background:#fff6e5;border:1px solid #e8c979;border-radius:10px;padding:12px;margin:10px 0;color:#644b12}

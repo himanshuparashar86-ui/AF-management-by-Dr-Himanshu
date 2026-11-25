@@ -1,18 +1,65 @@
 const $ = (id) => document.getElementById(id);
 let records = [];
-try { const stored = JSON.parse(localStorage.getItem('hl_af_v1') || '[]'); records = Array.isArray(stored) ? stored.filter(r => r && r.id && r.patient) : []; } catch (e) { console.warn('Stored AF records could not be read:', e); }
-let user = { role: '', name: '', language: 'english' };
+let lastSeenRecordsRaw = localStorage.getItem('hl_af_v1') || '[]';
+try { const stored = JSON.parse(lastSeenRecordsRaw); records = Array.isArray(stored) ? stored.filter(r => r && r.id && r.patient) : []; } catch (e) { console.warn('Stored AF records could not be read:', e); }
 let editingRecordId = null;
 let treatmentDrafts = {};
 try { const d=JSON.parse(localStorage.getItem('hl_af_treatment_drafts_v1')||'{}'); treatmentDrafts=d&&typeof d==='object'?d:{}; } catch(e) { treatmentDrafts={}; }
-function persistTreatmentDrafts(){ localStorage.setItem('hl_af_treatment_drafts_v1',JSON.stringify(treatmentDrafts)); }
+function persistTreatmentDrafts(){ return storageWrite('hl_af_treatment_drafts_v1',JSON.stringify(treatmentDrafts)); }
 let auditTrail = [];
 try { const a=JSON.parse(localStorage.getItem('hl_af_audit_v1')||'[]'); auditTrail=Array.isArray(a)?a:[]; } catch(e) { auditTrail=[]; }
 let treatmentFavourites = [];
 try { const f=JSON.parse(localStorage.getItem('hl_af_favourites_v1')||'[]'); treatmentFavourites=Array.isArray(f)?f:[]; } catch(e) { treatmentFavourites=[]; }
+let staffProfiles=[];
+try { const s=JSON.parse(localStorage.getItem('hl_af_staff_profiles_v1')||'[]'); staffProfiles=Array.isArray(s)?s.filter(x=>x&&x.id&&x.name):[]; } catch(e) { staffProfiles=[]; }
+let weeklyBackupState={};
+try { const b=JSON.parse(localStorage.getItem('hl_af_weekly_backup_v1')||'{}'); weeklyBackupState=b&&typeof b==='object'?b:{}; } catch(e) { weeklyBackupState={}; }
+let wizardDrafts={};
+try { const d=JSON.parse(localStorage.getItem('hl_af_wizard_drafts_v1')||'{}'); wizardDrafts=d&&typeof d==='object'?d:{}; } catch(e) { wizardDrafts={}; }
+let user={role:'',name:'',language:'english',staffId:'',staffProfile:null};
+let backupLockActive=false;
+const WEEKLY_BACKUP_MS=7*24*60*60*1000;
+const APP_STARTED_KEY='hl_af_app_started_v1';
+if(!localStorage.getItem(APP_STARTED_KEY)) localStorage.setItem(APP_STARTED_KEY,new Date().toISOString());
+function storageWrite(key,value){try{localStorage.setItem(key,value);return true;}catch(error){const message=error?.name==='QuotaExceededError'?'Device storage is full. Export a backup and free device storage before continuing.':`Could not save local data: ${error.message||error}`;alert(message);return false;}}
+function saveStaffProfiles(){return storageWrite('hl_af_staff_profiles_v1',JSON.stringify(staffProfiles));}
+function saveWeeklyBackupState(){return storageWrite('hl_af_weekly_backup_v1',JSON.stringify(weeklyBackupState));}
+function persistWizardDrafts(){return storageWrite('hl_af_wizard_drafts_v1',JSON.stringify(wizardDrafts));}
+function backupScopeKey(){return user.role==='doctor'?'doctor':`staff:${user.staffId||normalizedStaffName(user.name)}`;}
+function getBackupState(){const key=backupScopeKey();if(!weeklyBackupState[key]){const baseline=localStorage.getItem(APP_STARTED_KEY);weeklyBackupState[key]={lastBackupAt:null,dueFrom:baseline||new Date().toISOString(),initializedAt:new Date().toISOString()};saveWeeklyBackupState();}return weeklyBackupState[key];}
+function isWeeklyBackupDue(){return AFManagementCore.isBackupDue(getBackupState(),Date.now(),WEEKLY_BACKUP_MS);}
+function markBackupComplete(fileName,blobSize){const key=backupScopeKey();const previous=weeklyBackupState[key]||{};weeklyBackupState[key]={...previous,lastBackupAt:new Date().toISOString(),lastFileName:fileName,lastFileSize:blobSize,lastGeneratedAt:new Date().toISOString()};if(!saveWeeklyBackupState()){weeklyBackupState[key]=previous;return false;}backupLockActive=false;$('weeklyBackupGate')?.classList.add('hidden');document.body.classList.remove('backup-locked');renderBackupMeta();return true;}
+function confirmBackupSaved(fileName,blobSize){const sizeText=typeof blobSize==='number'?`${(blobSize/1024).toFixed(1)} KB`:'size unavailable';const saved=confirm(`Backup download was started. File: ${fileName} (${sizeText}).
+
+Can you see this file in your Downloads / Files folder?
+
+OK = Yes, I can see the file.
+Cancel = No / retry backup.`);if(!saved){alert('Backup is not marked complete. The weekly lock remains active. Please retry and confirm only after locating the file.');return false;}return markBackupComplete(fileName,blobSize);}
+function weeklyBackupDueText(){const s=getBackupState();return s.lastBackupAt?new Date(s.lastBackupAt).toLocaleString():'No backup generated yet';}
+function currentWizardDraftKey(){return user.role==='staff'&&user.staffId?`staff:${user.staffId}`:'';}
+function saveWizardDraft(){const key=currentWizardDraftKey();if(!key||!$('patientForm'))return;const values={};ids.forEach(id=>{if($(id))values[id]=$(id).value;});const draft={staffId:user.staffId,staffName:user.name,step:wizardCurrentStep,editingRecordId:editingRecordId||null,values,instability:[...document.querySelectorAll('[name=inst]:checked')].map(x=>x.value),savedAt:new Date().toISOString()};wizardDrafts[key]=draft;persistWizardDrafts();}
+function clearWizardDraft(){const key=currentWizardDraftKey();if(key&&wizardDrafts[key]){delete wizardDrafts[key];persistWizardDrafts();}}
+function resumeWizardDraft(){
+  const key=currentWizardDraftKey(),draft=key?wizardDrafts[key]:null;
+  if(!draft||draft.staffId!==user.staffId)return false;
+  const when=draft.savedAt?new Date(draft.savedAt).toLocaleString():'previously';
+  if(!confirm(`An unfinished patient entry for ${user.name} was saved ${when}.\n\nResume this entry?`))return false;
+  if(draft.editingRecordId){
+    const existing=records.find(r=>r.id===draft.editingRecordId);
+    if(!existing||!canAccessRecord(existing)||existing.status!=='Pending review'){
+      clearWizardDraft();alert('The pending record being edited is no longer available for staff correction. The saved edit draft has been cleared.');return false;
+    }
+    editingRecordId=existing.id;$('formTitle').textContent=`Edit patient: ${existing.patient.pName||''}`;$('submitPatient').textContent='Save corrected pending entry';$('cancelEdit').classList.remove('hidden');
+  } else {
+    editingRecordId=null;$('formTitle').textContent='Patient assessment';$('submitPatient').textContent='Submit for doctor review';$('cancelEdit').classList.add('hidden');
+  }
+  fillPatientForm(draft.values||{});
+  document.querySelectorAll('[name=inst]').forEach(el=>el.checked=(draft.instability||[]).includes(el.value));
+  setWizardStep(Number(draft.step)||1);tab('form');return true;
+}
 function normalizedStaffName(value) { return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase(); }
 function recordOwner(r) { return r?.enteredBy || r?.by || r?.history?.[0]?.by || ''; }
-function canAccessRecord(r) { return user.role === 'doctor' || (user.role === 'staff' && normalizedStaffName(recordOwner(r)) === normalizedStaffName(user.name)); }
+function canAccessRecord(r) { if(user.role==='doctor')return true; if(user.role!=='staff')return false; if(user.staffId&&r?.enteredById)return r.enteredById===user.staffId; return normalizedStaffName(recordOwner(r))===normalizedStaffName(user.name); }
 function visibleRecords() { return records.filter(canAccessRecord); }
 const DEFAULT_DOCTOR_NAME = 'Dr. Himanshu Parashar';
 let activeRecordId = null;
@@ -23,11 +70,60 @@ const WIZARD_STEP_HINTS = ['Enter patient name, age and sex. Complete all requir
 const ids = 'pName uhid age sex weight mobile hr sbp dbp spo2 symptoms duration reliability onset assessed ecg qrs wpw lvef creatinine htn diabetes hf stroke vascular bleeding valve notes'.split(' ');
 
 function save() {
-  localStorage.setItem('hl_af_v1', JSON.stringify(records));
-  localStorage.setItem('hl_af_audit_v1', JSON.stringify(auditTrail));
-  localStorage.setItem('hl_af_favourites_v1', JSON.stringify(treatmentFavourites));
-  persistTreatmentDrafts();
-  render();
+  try {
+    const latest=localStorage.getItem('hl_af_v1') || '[]';
+    if(latest!==lastSeenRecordsRaw){
+      throw new Error('Another AF Management tab changed patient records. Your changes were not saved to avoid overwriting newer data. Reload this tab and review the latest record.');
+    }
+    const raw=JSON.stringify(records);
+    if(!storageWrite('hl_af_v1',raw))return false;
+    lastSeenRecordsRaw=raw;
+    if(!storageWrite('hl_af_audit_v1',JSON.stringify(auditTrail)))return false;
+    if(!storageWrite('hl_af_favourites_v1',JSON.stringify(treatmentFavourites)))return false;
+    if(!saveStaffProfiles()||!saveWeeklyBackupState()||!persistTreatmentDrafts())return false;
+    render();return true;
+  } catch(error){alert(error.message||'Could not save patient data. Export a backup and retry.');return false;}
+}
+function bumpRecordRevision(record,at=new Date().toISOString()){
+  record.revision=Math.max(0,Number(record.revision)||0)+1;
+  record.updatedAt=at;
+  return record;
+}
+function invalidateApprovedPlanAfterClinicalEdit(record,at){
+  if(record.status==='Approved'||(Array.isArray(record.treatmentOrders)&&record.treatmentOrders.length)){
+    record.status='Needs re-approval';record.planNeedsReapproval=true;record.planOutdatedAt=at;
+  }
+}
+function validateIncomingRecord(record){
+  const result=AFManagementCore.validateRecord(record);
+  if(!result.valid)throw new Error(`Invalid patient record: ${result.reason}`);
+  return record;
+}
+function recordVersionDecision(existing,incoming){return AFManagementCore.compareRecordVersions(existing,incoming);}
+function planVersionDecision(existing,incoming){
+  const a=Number(existing.planRevision)||0,b=Number(incoming.planRevision)||0;
+  if(a&&b){if(b<a)return {decision:'stale',reason:'incoming plan revision is older'};if(b>a)return {decision:'newer',reason:'incoming plan revision is newer'};const at=Date.parse(incoming.approvedAt||'')||0,bt=Date.parse(existing.approvedAt||'')||0;return at>bt?{decision:'conflict',reason:'same plan revision has a later approval timestamp'}:{decision:'same',reason:'same or older plan revision'};}
+  const at=Date.parse(incoming.approvedAt||incoming.updatedAt||'')||0,bt=Date.parse(existing.approvedAt||existing.updatedAt||'')||0;
+  if(at&&bt&&at<bt)return {decision:'stale',reason:'incoming approval is older'};
+  if(at&&bt&&at>bt)return {decision:'legacy-confirm',reason:'legacy plan has no plan revision'};
+  return {decision:'legacy-confirm',reason:'plan revision metadata is missing'};
+}
+function mergeIncomingRecords(existingRecords,incomingRecords,source='import'){
+  const map=new Map(existingRecords.map(r=>[r.id,r]));const accepted=[],skipped=[],confirmations=[];
+  const incomingIds=new Set();
+  for(const raw of incomingRecords){validateIncomingRecord(raw);if(incomingIds.has(raw.id))throw new Error('Incoming file contains duplicate patient record IDs. Nothing was imported.');incomingIds.add(raw.id);const incoming=JSON.parse(JSON.stringify(raw));const existing=map.get(incoming.id);
+    if(!existing){incoming.revision=Math.max(1,Number(incoming.revision)||1);incoming.planRevision=Math.max(0,Number(incoming.planRevision)||0);map.set(incoming.id,incoming);accepted.push(incoming.id);continue;}
+    const verdict=recordVersionDecision(existing,incoming);
+    if(verdict.decision==='stale'||verdict.decision==='same'){skipped.push({id:incoming.id,reason:verdict.reason});continue;}
+    if(verdict.decision==='legacy-confirm'||verdict.decision==='conflict'||existing.status==='Approved')confirmations.push({id:incoming.id,name:existing.patient?.pName||incoming.patient?.pName||incoming.id,reason:verdict.reason||'existing record is approved'});
+    else {const clinicalChanged=JSON.stringify(existing.patient)!==JSON.stringify(incoming.patient);if(clinicalChanged&&(existing.status==='Approved'||incoming.status==='Approved')){incoming.status='Needs re-approval';incoming.planNeedsReapproval=true;incoming.planOutdatedAt=new Date().toISOString();}map.set(incoming.id,incoming);accepted.push(incoming.id);}
+  }
+  if(confirmations.length){const summary=confirmations.slice(0,8).map(x=>`${x.name} (${x.id}): ${x.reason}`).join('\n');const ok=confirm(`Some existing records need confirmation before replacement.
+
+${summary}
+
+Replace only these records with the incoming file?`);if(ok){for(const item of confirmations){const candidate=incomingRecords.find(r=>r.id===item.id);if(candidate){const replacement=JSON.parse(JSON.stringify(candidate));const current=map.get(candidate.id);if(current&&JSON.stringify(current.patient)!==JSON.stringify(replacement.patient)&&(current.status==='Approved'||replacement.status==='Approved')){replacement.status='Needs re-approval';replacement.planNeedsReapproval=true;replacement.planOutdatedAt=new Date().toISOString();}map.set(candidate.id,replacement);accepted.push(candidate.id);}}}else confirmations.forEach(x=>skipped.push({id:x.id,reason:'user declined replacement'}));}
+  return {records:[...map.values()],accepted,skipped};
 }
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({
@@ -525,7 +621,7 @@ function bindTreatmentBuilder(r) {
     const draft=getOrderDraft(r); if(!draft.length)return alert('Add at least one order before saving a favourite.');
     const name=prompt('Name this favourite regimen:'); if(!name||!name.trim())return;
     treatmentFavourites.push({name:name.trim(),pathway:$('tbPathway').value,orders:JSON.parse(JSON.stringify(draft)),savedAt:new Date().toISOString()});
-    localStorage.setItem('hl_af_favourites_v1',JSON.stringify(treatmentFavourites));
+    if(!storageWrite('hl_af_favourites_v1',JSON.stringify(treatmentFavourites))){treatmentFavourites.pop();return;}
     const select=$('tbFavourite'); select.innerHTML='<option value="">Select saved favourite</option>'+treatmentFavourites.map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('');
     select.value=String(treatmentFavourites.length-1); alert('Favourite regimen saved on this device.');
   });
@@ -543,13 +639,26 @@ function staffApprovedOrdersHtml(r) {
   return `<section class="staff-order-summary"><h4>Doctor-approved treatment orders</h4>${orders.map((o,i)=>`<div class="staff-order-item"><b>${i+1}. ${esc(o.item)}</b><p>${esc(orderText(o))}</p></div>`).join('')}</section>`;
 }
 function downloadBlob(filename, content, type) {
-  const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+  const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); return {filename,size:blob.size,blob};
+}
+function uniqueFileStamp(){return `${new Date().toISOString().replace(/[:.]/g,'-')}-${Math.random().toString(36).slice(2,6)}`;}
+async function encodeTransferPayload(payload){
+  const json=JSON.stringify(payload);const digest=await AFManagementCore.sha256Hex(json);const bytes=new TextEncoder().encode(json);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return `SHA-256: ${digest}\nBASE64:\n${btoa(binary)}`;
+}
+async function decodeTransferPayload(section,requireChecksum=false){
+  const text=String(section||'').trim();const m=text.match(/^SHA-256:\s*([a-f0-9]{64})\s+BASE64:\s*([A-Za-z0-9+/=\s]+)$/i);
+  if(m){const binary=atob(m[2].replace(/\s+/g,''));const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));const json=new TextDecoder().decode(bytes);const actual=await AFManagementCore.sha256Hex(json);if(actual.toLowerCase()!==m[1].toLowerCase())throw new Error('File integrity check failed. The TXT file may be damaged or altered. Ask the sender to share it again.');return JSON.parse(json);}
+  if(requireChecksum)throw new Error('This version-2 TXT file is missing its SHA-256 integrity checksum. Ask the sender to export it again.');
+  // Backward compatibility: v1 TXT files did not include a checksum.
+  const binary=atob(text.replace(/\s+/g,''));const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));return JSON.parse(new TextDecoder().decode(bytes));
 }
 function makeFullBackup() {
-  return {format:'HeartlineAFBackup',version:1,appVersion:'1.7',backedUpAt:new Date().toISOString(),records:JSON.parse(JSON.stringify(records)),treatmentDrafts:JSON.parse(JSON.stringify(treatmentDrafts)),treatmentFavourites:JSON.parse(JSON.stringify(treatmentFavourites)),auditTrail:JSON.parse(JSON.stringify(auditTrail))};
+  return {format:'HeartlineAFBackup',version:3,appVersion:'1.9',backedUpAt:new Date().toISOString(),records:JSON.parse(JSON.stringify(records)),staffProfiles:JSON.parse(JSON.stringify(staffProfiles)),treatmentDrafts:JSON.parse(JSON.stringify(treatmentDrafts)),treatmentFavourites:JSON.parse(JSON.stringify(treatmentFavourites)),auditTrail:JSON.parse(JSON.stringify(auditTrail)),weeklyBackupState:JSON.parse(JSON.stringify(weeklyBackupState)),wizardDrafts:JSON.parse(JSON.stringify(wizardDrafts))};
 }
-function exportAllJson() {
-  downloadBlob(`Heartline_AF_Full_Backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(makeFullBackup(),null,2),'application/json');
+function exportAllJson(options={}) {
+  const filename=`Heartline_AF_Full_Backup_${uniqueFileStamp()}.json`;
+  try{const result=downloadBlob(filename,JSON.stringify(makeFullBackup(),null,2),'application/json');return confirmBackupSaved(filename,result.size);}catch(error){alert(`Backup could not be generated: ${error.message||error}`);return false;}
 }
 function exportAllText() {
   const b=makeFullBackup();
@@ -562,7 +671,7 @@ function exportAllText() {
     arr.push('Complete structured record data:',JSON.stringify(r,null,2));
     return arr.join('\n');
   }),'',`Favourite regimens saved: ${treatmentFavourites.length}`,`Audit trail entries: ${auditTrail.length}`];
-  downloadBlob(`Heartline_AF_Full_Export_${new Date().toISOString().slice(0,10)}.txt`,lines.join('\n'),'text/plain;charset=utf-8');
+  downloadBlob(`Heartline_AF_Full_Export_${uniqueFileStamp()}.txt`,lines.join('\n'),'text/plain;charset=utf-8');
 }
 function exportAllPdf() {
   const w=window.open('','_blank'); if(!w)return alert('Allow pop-ups to create the complete PDF print view.');
@@ -577,25 +686,40 @@ function exportAllPdf() {
   w.document.close();
 }
 function restoreFullBackup(obj) {
-  if(obj?.format!=='HeartlineAFBackup'||!Array.isArray(obj.records))throw new Error('This is not a valid Heartline AF full backup.');
+  if(obj?.format!=='HeartlineAFBackup'||![2,3].includes(Number(obj.version))||!Array.isArray(obj.records))throw new Error('This is not a valid Heartline AF full backup.');
+  const backupIds=new Set();for(const r of obj.records){const check=AFManagementCore.validateRecord(r);if(!check.valid)throw new Error(`Backup contains an invalid patient record: ${check.reason}`);if(backupIds.has(r.id))throw new Error('Backup contains duplicate patient record IDs. Nothing was restored.');backupIds.add(r.id);}
+  if(obj.staffProfiles!==undefined&&(!Array.isArray(obj.staffProfiles)||obj.staffProfiles.some(p=>!AFManagementCore.validateProfile(p).valid)))throw new Error('Backup contains invalid staff profiles.');
+  if(obj.treatmentDrafts!==undefined&&!AFManagementCore.validateDraftMap(obj.treatmentDrafts))throw new Error('Backup contains invalid treatment drafts.');
+  if(obj.weeklyBackupState!==undefined&&!AFManagementCore.validateWeeklyState(obj.weeklyBackupState))throw new Error('Backup contains invalid weekly backup metadata.');
+  if(obj.wizardDrafts!==undefined&&!AFManagementCore.validateWizardDrafts(obj.wizardDrafts))throw new Error('Backup contains invalid wizard drafts.');
+  if(obj.treatmentFavourites!==undefined&&!AFManagementCore.validateFavourites(obj.treatmentFavourites))throw new Error('Backup contains invalid favourite regimens.');
+  if(obj.auditTrail!==undefined&&!AFManagementCore.validateAuditTrail(obj.auditTrail))throw new Error('Backup audit history is invalid.');
   const mode=$('restoreMode').value;
   if(mode==='replace') {
     if(!confirm(`Replace all ${records.length} records on this device with ${obj.records.length} records from the backup? This cannot be undone.`))return;
     records=JSON.parse(JSON.stringify(obj.records));
   } else {
-    const map=new Map(records.map(r=>[r.id,r])); obj.records.forEach(r=>{if(r?.id&&r?.patient)map.set(r.id,r)}); records=[...map.values()];
+    const result=mergeIncomingRecords(records,obj.records,'full-backup');records=result.records;
+    if(result.skipped.length)alert(`${result.accepted.length} records imported. ${result.skipped.length} older, duplicate or declined records were not allowed to overwrite newer local records.`);
   }
-  if(obj.treatmentDrafts&&typeof obj.treatmentDrafts==='object') {
-    if(mode==='replace') treatmentDrafts=JSON.parse(JSON.stringify(obj.treatmentDrafts));
-    else treatmentDrafts={...treatmentDrafts,...JSON.parse(JSON.stringify(obj.treatmentDrafts))};
+  if(Array.isArray(obj.staffProfiles)) {
+    if(mode==='replace') staffProfiles=JSON.parse(JSON.stringify(obj.staffProfiles));
+    else {
+      const byId=new Map(staffProfiles.map(s=>[s.id,s]));
+      for(const incoming of obj.staffProfiles){const current=byId.get(incoming.id);if(!current){byId.set(incoming.id,incoming);continue;}const decision=AFManagementCore.compareProfileVersions(current,incoming);if(decision.decision==='newer')byId.set(incoming.id,incoming);else if(decision.decision==='legacy-confirm'||decision.decision==='conflict'){if(confirm(`A staff profile needs confirmation: ${incoming.name}. Replace the local profile status/details?`))byId.set(incoming.id,incoming);}}
+      staffProfiles=[...byId.values()];
+    }
+    if(!saveStaffProfiles())throw new Error('Could not save restored staff profiles. Check device storage.');
   }
-  if(Array.isArray(obj.treatmentFavourites)) {
-    if(mode==='replace') treatmentFavourites=JSON.parse(JSON.stringify(obj.treatmentFavourites));
-    else { const byName=new Map(treatmentFavourites.map(f=>[String(f.name||'').toLowerCase(),f])); obj.treatmentFavourites.forEach(f=>byName.set(String(f.name||'').toLowerCase(),f)); treatmentFavourites=[...byName.values()]; }
-  }
+  if(obj.weeklyBackupState&&typeof obj.weeklyBackupState==='object') weeklyBackupState=mode==='replace'?JSON.parse(JSON.stringify(obj.weeklyBackupState)):{...weeklyBackupState,...JSON.parse(JSON.stringify(obj.weeklyBackupState))};
+  if(obj.backedUpAt&&Number.isFinite(Date.parse(obj.backedUpAt))){const old=weeklyBackupState.doctor||{};const prior=Date.parse(old.lastBackupAt||'')||0;const incoming=Date.parse(obj.backedUpAt);if(incoming>prior)weeklyBackupState.doctor={...old,lastBackupAt:obj.backedUpAt,restoredFromBackup:true};}
+  if(obj.treatmentDrafts&&typeof obj.treatmentDrafts==='object') treatmentDrafts=mode==='replace'?JSON.parse(JSON.stringify(obj.treatmentDrafts)):{...treatmentDrafts,...JSON.parse(JSON.stringify(obj.treatmentDrafts))};
+  if(obj.treatmentFavourites&&Array.isArray(obj.treatmentFavourites)) treatmentFavourites=mode==='replace'?JSON.parse(JSON.stringify(obj.treatmentFavourites)):[...treatmentFavourites,...obj.treatmentFavourites.filter(f=>!treatmentFavourites.some(x=>String(x.name||'').toLowerCase()===String(f.name||'').toLowerCase()))];
+  if(obj.wizardDrafts&&typeof obj.wizardDrafts==='object')wizardDrafts=mode==='replace'?JSON.parse(JSON.stringify(obj.wizardDrafts)):{...wizardDrafts,...obj.wizardDrafts};
   if(Array.isArray(obj.auditTrail)) auditTrail=mode==='replace'?JSON.parse(JSON.stringify(obj.auditTrail)):[...auditTrail,...obj.auditTrail];
   auditTrail.push({event:`Full backup restored (${mode})`,by:user.name,at:new Date().toISOString(),records:obj.records.length});
-  save(); $('backupFile').value=''; tab('list'); $('recordDetail').innerHTML='';
+  if(!save())throw new Error('Backup data was prepared but could not be saved to this device. Check device storage and retry.');
+  $('backupFile').value=''; tab('list'); $('recordDetail').innerHTML='';
   alert(`Backup restored. ${records.length} patient records are now stored on this device.`);
 }
 
@@ -644,11 +768,14 @@ function bindDoctorPanel(r) {
     $(id)?.addEventListener('change',()=>renderDoctorPanel(r));
   });
   $('saveDoctorReview')?.addEventListener('click',()=>{
-    r.doctorReview=captureDoctorReview();
-    r.updatedAt=new Date().toISOString();
+    const reviewAt=new Date().toISOString();const nextReview=captureDoctorReview();const priorReview=r.doctorReview||{};
+    const decisionFields=['afInstability','preOac','tee','agent'];
+    const decisionChanged=decisionFields.some(key=>(priorReview[key]||'')!==(nextReview[key]||''));
+    if(decisionChanged)invalidateApprovedPlanAfterClinicalEdit(r,reviewAt);
+    r.doctorReview=nextReview;bumpRecordRevision(r,reviewAt);
     r.history=r.history||[];
     r.history.push({event:'Doctor decision inputs saved',by:user.name,at:r.updatedAt});
-    save();
+    if(!save())return;
     openRecord(r.id);
   });
 }
@@ -693,6 +820,7 @@ function updateWizardControls() {
 function setWizardStep(step) {
   wizardCurrentStep=Math.max(1,Math.min(4,step));
   updateWizardControls();
+  if(user.role==='staff')saveWizardDraft();
   const formTop=$('wizardHeader'); if(formTop)formTop.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function renderRiskScoreSummary() {
@@ -716,8 +844,14 @@ function validateAllWizardPages() {
   return true;
 }
 function tab(t) {
-  ['list','form','transfer'].forEach(x=>$(x).classList.toggle('hidden',x!==t));
+  if(backupLockActive&&t!=='transfer')return;
+  ['list','form','transfer','staffAdmin'].forEach(x=>$(x).classList.toggle('hidden',x!==t));
   if(user.role==='doctor') document.querySelector('[data-tab="form"]').classList.toggle('hidden',!(t==='form'&&editingRecordId));
+  if(user.role==='staff'&&editingRecordId)document.querySelector('[data-tab="form"]').classList.remove('hidden');
+  if(user.role!=='doctor'&&t==='staffAdmin')return tab('list');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active-tab',b.dataset.tab===t));
+  if(t==='staffAdmin')renderStaffProfiles();
+  if(t==='transfer')renderBackupMeta();
 }
 function render() {
   const shownRecords=visibleRecords();
@@ -732,6 +866,9 @@ function render() {
     : '<p class="hint">No patient records entered by your staff account yet. Create a new assessment to begin.</p>');
   $('choose').innerHTML=shownRecords.map(r=>`<option value="${esc(r.id)}">${esc(r.patient.pName || 'Unnamed patient')} · ${esc(formatRecordId(r.id))}</option>`).join('');
   $('doctorBackup').classList.toggle('hidden',user.role!=='doctor');
+  $('staffBackupPanel').classList.toggle('hidden',user.role!=='staff');
+  $('staffAdminTab').classList.toggle('hidden',user.role!=='doctor');
+  if(user.role==='doctor')renderStaffProfiles();
   if(user.role==='doctor') {
     document.querySelector('[data-tab="form"]').classList.toggle('hidden',!editingRecordId);
     $('new').classList.add('hidden');
@@ -746,33 +883,23 @@ function fillPatientForm(p) {
   updateAutoScore(); updateHemoScreen();
 }
 function startEditRecord(id) {
-  if(user.role!=='doctor')return;
-  const r=records.find(x=>x.id===id); if(!r)return;
+  const r=records.find(x=>x.id===id);if(!r)return;
+  const doctorCanEdit=user.role==='doctor';const staffCanEdit=user.role==='staff'&&canAccessRecord(r)&&r.status==='Pending review';
+  if(!doctorCanEdit&&!staffCanEdit)return alert('Only Doctor Mode can edit approved records. Staff may correct their own pending entries.');
   editingRecordId=id; fillPatientForm(r.patient); setWizardStep(1);
   $('formTitle').textContent=`Edit patient: ${r.patient.pName||''}`;
-  $('submitPatient').textContent='Save patient changes'; $('cancelEdit').classList.remove('hidden');
+  $('submitPatient').textContent=doctorCanEdit?'Save patient changes':'Save corrected pending entry'; $('cancelEdit').classList.remove('hidden');
   document.querySelector('[data-tab="form"]').classList.remove('hidden'); tab('form');
 }
 function cancelPatientEdit() {
-  editingRecordId=null; $('patientForm').reset(); setWizardStep(1); updateAutoScore(); updateHemoScreen();
+  editingRecordId=null; if(user.role==='staff')clearWizardDraft(); $('patientForm').reset(); setWizardStep(1); updateAutoScore(); updateHemoScreen();
   $('formTitle').textContent='Patient assessment'; $('submitPatient').textContent='Submit for doctor review'; $('cancelEdit').classList.add('hidden');
   tab('list');
 }
 function exportableRecord(r) {
   return JSON.parse(JSON.stringify(r));
 }
-function encodeTransferPayload(payload) {
-  const bytes=new TextEncoder().encode(JSON.stringify(payload));
-  let binary='';
-  for(let i=0;i<bytes.length;i+=0x8000) binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
-  return btoa(binary);
-}
-function decodeTransferPayload(encoded) {
-  const binary=atob(encoded.replace(/\s+/g,''));
-  const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
-function buildPatientTransferText(payload) {
+async function buildPatientTransferText(payload) {
   const r=payload.record||{},p=r.patient||{};
   const orders=(r.treatmentOrders||[]).map((o,i)=>`${i+1}. ${o.item||'Order'} — ${orderText(o)}`).join('\n')||'No approved treatment orders attached.';
   const lines=[
@@ -803,9 +930,9 @@ function buildPatientTransferText(payload) {
     'Open AF Management → Patient transfer → Import received file → choose this TXT file → Import patient / treatment file.',
     'The application reads the structured transfer section below. Do not delete or edit that section.',
     '',
-    '--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---',
-    encodeTransferPayload(payload),
-    '--- END HEARTLINE STRUCTURED TRANSFER DATA V1 ---',
+    '--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V2 ---',
+    await encodeTransferPayload(payload),
+    '--- END HEARTLINE STRUCTURED TRANSFER DATA V2 ---',
     ''
   ];
   return lines.join('\n');
@@ -813,14 +940,10 @@ function buildPatientTransferText(payload) {
 async function parsePatientTransferFile(file) {
   const content=await file.text();
   if(file.name.toLowerCase().endsWith('.json') || content.trimStart().startsWith('{')) return JSON.parse(content);
-  const match=content.match(/--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---\s*([A-Za-z0-9+/=\s]+?)\s*--- END HEARTLINE STRUCTURED TRANSFER DATA V1 ---/);
-  if(!match) throw new Error('This TXT file does not contain a valid Heartline patient transfer section.');
-  return decodeTransferPayload(match[1]);
+  const v2=content.indexOf('--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V2 ---');const v1=content.indexOf('--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---');const start=v2>=0?v2:v1;const marker=v2>=0?'--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V2 ---':'--- BEGIN HEARTLINE STRUCTURED TRANSFER DATA V1 ---';const endMarker=v2>=0?'--- END HEARTLINE STRUCTURED TRANSFER DATA V2 ---':'--- END HEARTLINE STRUCTURED TRANSFER DATA V1 ---';if(start<0)throw new Error('This TXT file does not contain a valid Heartline patient transfer section.');const end=content.indexOf(endMarker,start+marker.length);if(end<0)throw new Error('Transfer section is incomplete or truncated.');return await decodeTransferPayload(content.slice(start+marker.length,end),v2>=0);
 }
-function exportR(r) {
-  const payload={format:'HeartlineAFTransfer',version:1,transferType:'patient-handover',record:exportableRecord(r)};
-  const content=buildPatientTransferText(payload);
-  downloadBlob(`${formatRecordId(r.id)}_Patient_Transfer.txt`,content,'text/plain;charset=utf-8');
+async function exportR(r) {
+  try{const payload={format:'HeartlineAFTransfer',version:2,transferType:'patient-handover',record:exportableRecord(r)};const content=await buildPatientTransferText(payload);downloadBlob(`${formatRecordId(r.id)}_Patient_Transfer_${uniqueFileStamp()}.txt`,content,'text/plain;charset=utf-8');}catch(error){alert(`Patient transfer file could not be generated: ${error.message||error}`);}
 }
 
 function setShareStatus(targetId,message,whatsappUrl='') {
@@ -829,22 +952,30 @@ function setShareStatus(targetId,message,whatsappUrl='') {
   host.classList.remove('hidden');
   host.innerHTML=`${esc(message)}${whatsappUrl?` <a href="${esc(whatsappUrl)}" target="_blank" rel="noopener noreferrer">Open WhatsApp</a>`:''}`;
 }
-function sharePatientViaWhatsApp(r,transferType,statusId) {
+async function sharePatientViaWhatsApp(r,transferType,statusId) {
   if(!r||!r.patient)return alert('Patient record is not available.');
   if(transferType==='doctor-approved-plan'&&(user.role!=='doctor'||r.status!=='Approved'))return alert('Only an approved doctor plan can be shared from Doctor Mode.');
   if(transferType==='patient-handover'&&!canAccessRecord(r))return alert('You do not have access to this patient record.');
-  const payload={format:'HeartlineAFTransfer',version:1,transferType,record:JSON.parse(JSON.stringify(r))};
+  const payload={format:'HeartlineAFTransfer',version:2,transferType,record:JSON.parse(JSON.stringify(r))};
   const filename=transferType==='doctor-approved-plan'
     ? `${formatRecordId(r.id)}_Doctor_Approved_Plan.txt`
     : `${formatRecordId(r.id)}_Patient_Handover.txt`;
-  const textFile=buildPatientTransferText(payload);
+  let textFile;try{textFile=await buildPatientTransferText(payload);}catch(error){return alert(`Patient transfer file could not be generated: ${error.message||error}`);}
   const p=r.patient;
   let msg='';
   if(transferType==='doctor-approved-plan') {
-    const orders=(r.treatmentOrders||[]).map((o,i)=>`${i+1}. ${o.item}: ${orderText(o)}`).join('\n')||r.plan||'See the attached approved plan.';
-    msg=`Doctor-approved AF treatment plan\nPatient: ${p.pName||'Not entered'}\nRecord ID: ${formatRecordId(r.id)}\nApproved by: ${r.approvedBy||DEFAULT_DOCTOR_NAME}\n\nApproved orders:\n${orders}\n\nPlease download the attached TXT file, open AF Management → Patient transfer → Import received file, and import the TXT file. It updates the patient record and staff preparation checklist.`;
+    msg=`Doctor-approved AF treatment update
+Record ID: ${formatRecordId(r.id)}
+Plan revision: ${r.planRevision||1}
+Approved: ${r.approvedAt||'See attached file'}
+
+Please import the attached TXT file in AF Management → Patient transfer. The attachment contains the complete structured update.`;
   } else {
-    msg=`AF patient handover for doctor review\nPatient: ${p.pName||'Not entered'}\nRecord ID: ${formatRecordId(r.id)}\nUHID: ${p.uhid||'Not entered'}\nAge/Sex: ${p.age||'—'} / ${p.sex||'—'}\nHR: ${p.hr||'—'} bpm · BP: ${p.sbp||'—'}/${p.dbp||'—'} mmHg · SpO₂: ${p.spo2||'—'}%\nAF duration: ${durationLabel(p.duration)}\nEntered by: ${recordOwner(r)||'Staff'}\n\nPlease download the attached TXT file, open AF Management → Patient transfer → Import received file, and import the TXT file to review this patient.`;
+    msg=`AF patient handover for doctor review
+Record ID: ${formatRecordId(r.id)}
+Record revision: ${r.revision||1}
+
+Please import the attached TXT file in AF Management → Patient transfer. The attachment contains the patient assessment.`;
   }
   const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const waUrl=(isMobile?'https://wa.me/?text=':'https://web.whatsapp.com/send?text=')+encodeURIComponent(msg);
@@ -912,12 +1043,13 @@ function openRecord(id) {
   const d=advice(r.patient);
   const act=user.role==='doctor'
     ? `<div class="actions doctor-record-actions"><button type="button" id="approve">${r.status==='Approved'?'Update & approve treatment plan':'Approve treatment plan'}</button><button type="button" class="light" id="sendStaffPlan" ${r.status==='Approved'?'':'disabled'}>Share approved plan via WhatsApp</button><button type="button" class="light" id="editPatient">Edit patient record</button><button type="button" class="danger-button" id="deletePatient">Delete patient record</button></div>`
-    : r.status==='Approved'?'<button class="light" id="correction">Request correction</button>':'';
+    : r.status==='Pending review'?'<button class="light" id="editPatient">Edit my pending entry</button>':r.status==='Approved'?'<button class="light" id="correction">Request correction</button>':'';
   const staffBlock=user.role==='staff'?staffAssessmentHtml(r.patient):
     `<h4>Initial clinical data</h4><p>CHA₂DS₂-VA: ${d.s.va} · CHA₂DS₂-VASc: ${d.s.vasc}</p><p>Automatic screen: ${esc(hemodynamicScreen(r.patient).label)}</p>`;
   const doctorBlock=user.role==='doctor'?doctorPanelHtml(r):'';
-  const planBlock=user.role==='doctor'&&r.plan?`<section class="staff-order-summary"><h4>Currently approved treatment plan</h4><p>${esc(r.plan).replace(/\n/g,'<br>')}</p><small>Approved by ${esc(r.approvedBy)} · ${r.approvedAt?new Date(r.approvedAt).toLocaleString():''}</small></section>`:
-    user.role==='staff'&&r.status==='Approved'?`${staffApprovedOrdersHtml(r)}${staffApprovedWorkflowHtml(r)}`:'';
+  const planBlock=user.role==='doctor'&&r.plan?`<section class="staff-order-summary"><h4>${r.status==='Approved'?'Currently approved treatment plan':'Previous treatment plan — needs re-approval'}</h4><p>${esc(r.plan).replace(/\n/g,'<br>')}</p><small>Plan revision ${r.planRevision||1} · Approved by ${esc(r.approvedBy||'')} · ${r.approvedAt?new Date(r.approvedAt).toLocaleString():''}</small></section>`:
+    user.role==='staff'&&r.status==='Approved'?`<p><b>Plan revision ${r.planRevision||1}</b> · Approved ${r.approvedAt?new Date(r.approvedAt).toLocaleString():'time not recorded'}</p>${staffApprovedOrdersHtml(r)}${staffApprovedWorkflowHtml(r)}`:
+    user.role==='staff'&&r.status==='Needs re-approval'?'<section class="alert-warning"><b>Doctor review required:</b> Patient details changed after the previous approval. Do not follow the previous treatment plan. Contact the doctor for an updated plan.</section>':'';
   detailHost.innerHTML=`<div class="card" data-record-detail>
     <h3>${esc(r.patient.pName)} — ${esc(r.status)}</h3>
     <p><b>Internal record ID:</b> ${esc(formatRecordId(r.id))} · <b>UHID:</b> ${esc(r.patient.uhid||'Not entered')}</p>
@@ -931,7 +1063,7 @@ function openRecord(id) {
   $('saveStaffChecklist')?.addEventListener('click',()=>{
     if(user.role!=='staff'||r.status!=='Approved')return;
     r.staffChecklistDone=[...document.querySelectorAll('[data-checklist-record] input[data-task]:checked')].map(x=>Number(x.dataset.task));
-    r.updatedAt=new Date().toISOString(); r.history=r.history||[];
+    r.history=r.history||[];const revisionAt=new Date().toISOString();bumpRecordRevision(r,revisionAt);
     r.history.push({event:'Staff preparation checklist updated',by:user.name,at:r.updatedAt,completed:r.staffChecklistDone.length});
     save();openRecord(r.id);
   });
@@ -944,8 +1076,8 @@ function openRecord(id) {
     r.approvedPathway=$('tbPathway').value;
     r.treatmentOrders=JSON.parse(JSON.stringify(orders));
     r.plan=generatePlanText(orders);
-    r.doctorReview=review;r.status='Approved';r.approvedBy=DEFAULT_DOCTOR_NAME;
-    r.approvedAt=approvedAt;r.updatedAt=approvedAt;
+    r.doctorReview=review;r.status='Approved';r.planNeedsReapproval=false;r.approvedBy=DEFAULT_DOCTOR_NAME;
+    bumpRecordRevision(r,approvedAt);r.planRevision=Math.max(0,Number(r.planRevision)||0)+1;r.approvedRevision=r.revision;r.approvedAt=approvedAt;
     r.history=r.history||[];r.history.push({event:'Doctor approved / updated treatment plan',by:DEFAULT_DOCTOR_NAME,at:approvedAt,orders:orders.length});
     auditTrail.push({event:'Treatment plan approved / updated',recordId:r.id,by:DEFAULT_DOCTOR_NAME,at:approvedAt,orders:orders.length});
     save();openRecord(r.id);
@@ -962,28 +1094,150 @@ function openRecord(id) {
     const at=new Date().toISOString();
     auditTrail.push({event:'Patient record deleted',recordId:r.id,by:DEFAULT_DOCTOR_NAME,at});
     records=records.filter(x=>x.id!==r.id); delete treatmentDrafts[r.id]; persistTreatmentDrafts(); activeRecordId=null;
-    save();detailHost.innerHTML='';tab('list');alert('Patient record deleted. Keep regular JSON backups.');
+    save();detailHost.innerHTML='';tab('list');alert('Patient record deleted. Keep regular full backups.');
   });
   $('correction')?.addEventListener('click',()=>{
     const reason=prompt('Describe correction requested; do not overwrite approved data.'); if(!reason)return;
     r.correction={reason,status:'Requested',by:user.name,at:new Date().toISOString()};
-    r.history=r.history||[];r.history.push({event:'Correction requested',by:user.name,at:r.correction.at}); save();openRecord(r.id);
+    bumpRecordRevision(r,r.correction.at);r.history=r.history||[];r.history.push({event:'Correction requested',by:user.name,at:r.correction.at});if(!save())return;openRecord(r.id);
   });
   $('oneExport').onclick=()=>exportR(r);
 }
 
+
+function makeStaffId(){const d=new Date(),date=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');return `STF-${date}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;}
+async function staffProfileText(profile){
+  const payload={format:'HeartlineStaffProfile',version:2,profile};
+  return ['HEARTLINE HEALTHCARE LLP — AF MANAGEMENT','STAFF PROFILE INVITATION','Import this file once on the staff member’s device.','',`Staff name: ${profile.name}`,`Staff ID: ${profile.id}`,`Profile revision: ${profile.revision||1}`,`Updated: ${profile.updatedAt||profile.createdAt||''}`,`Assigned by: ${profile.assignedBy||DEFAULT_DOCTOR_NAME}`,`Profile status: ${profile.active===false?'INACTIVE':'ACTIVE'}`,'','--- BEGIN HEARTLINE STAFF PROFILE DATA V2 ---',await encodeTransferPayload(payload),'--- END HEARTLINE STAFF PROFILE DATA V2 ---',''].join('\n');
+}
+async function parseStructuredSection(content,begin,end){const start=content.indexOf(begin);if(start<0)throw new Error('Structured data section is missing or damaged.');const bodyStart=start+begin.length;const stop=content.indexOf(end,bodyStart);if(stop<0)throw new Error('Structured data section is incomplete or truncated.');return await decodeTransferPayload(content.slice(bodyStart,stop),begin.includes('V2'));}
+async function downloadStaffProfile(profile){const filename=`Heartline_Staff_Profile_${profile.name.replace(/[^a-z0-9]+/gi,'_')}_${profile.id}_${uniqueFileStamp()}.txt`;downloadBlob(filename,await staffProfileText(profile),'text/plain;charset=utf-8');return filename;}
+function openWhatsAppMessage(message){const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);const url=(isMobile?'https://wa.me/?text=':'https://web.whatsapp.com/send?text=')+encodeURIComponent(message);return window.open(url,'_blank');}
+async function shareStaffProfile(profile){
+  if(user.role!=='doctor')return alert('Only Doctor Mode can create and share staff profiles.');
+  const filename=`Heartline_Staff_Profile_${profile.name.replace(/[^a-z0-9]+/gi,'_')}_${profile.id}.txt`;
+  let content;try{content=await staffProfileText(profile);}catch(error){return alert(`Staff profile file could not be generated: ${error.message||error}`);}const message=`AF Management staff profile\nName: ${profile.name}\nStaff ID: ${profile.id}\n\nPlease download the attached TXT file. Open AF Management, choose Staff, import this profile file, then select your profile to continue.`;
+  try{const file=new File([content],filename,{type:'text/plain'});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:'AF Management staff profile',text:message,files:[file]});return;}}catch(e){if(e?.name==='AbortError')return;}
+  downloadBlob(filename,content,'text/plain;charset=utf-8');const opened=openWhatsAppMessage(message);setShareStatus('staffProfileShareStatus',`Profile file downloaded (${filename}). ${opened?'WhatsApp opened.':'Open WhatsApp using the browser.'} Select the staff chat and attach this TXT file as a Document.`,opened?'':'https://web.whatsapp.com/');
+}
+function renderStaffProfiles(){
+  const host=$('staffProfilesList');if(!host)return;
+  if(!staffProfiles.length){host.innerHTML='<p class="hint">No staff profiles created yet.</p>';return;}
+  host.innerHTML=staffProfiles.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<div class="staff-profile-row"><div><b>${esc(p.name)}</b><small>${esc(p.id)} · ${p.active===false?'Inactive':'Active'}</small></div><div class="staff-profile-actions"><button class="light" type="button" data-share-staff="${esc(p.id)}">Share profile</button><button class="${p.active===false?'light':'danger-button'}" type="button" data-toggle-staff="${esc(p.id)}">${p.active===false?'Reactivate':'Deactivate'}</button></div></div>`).join('');
+  host.querySelectorAll('[data-share-staff]').forEach(b=>b.addEventListener('click',()=>{const p=staffProfiles.find(x=>x.id===b.dataset.shareStaff);if(p)shareStaffProfile(p);}));
+  host.querySelectorAll('[data-toggle-staff]').forEach(b=>b.addEventListener('click',()=>{const p=staffProfiles.find(x=>x.id===b.dataset.toggleStaff);if(!p)return;const next=p.active===false;if(!next&&!confirm(`Deactivate ${p.name}? They will need an updated inactive profile file on their device for this change to take effect there.`))return;p.active=next;p.revision=Math.max(0,Number(p.revision)||0)+1;p.updatedAt=new Date().toISOString();saveStaffProfiles();renderStaffProfiles();shareStaffProfile(p);}));
+}
+function refreshStaffLoginOptions(){
+  const select=$('staffProfileSelect');if(!select)return;
+  const active=staffProfiles.filter(p=>p.active!==false);
+  select.innerHTML=active.length?'<option value="">Select your profile</option>'+active.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.id)}</option>`).join(''):'<option value="">No active staff profile imported</option>';
+  $('staffLoginHint').textContent=active.length?'Select your profile. If this is a new device, import your staff profile or full staff backup first.':'Your doctor will share your staff profile file through WhatsApp. Download it and import it here before continuing.';
+}
+async function importStaffSetupFile(file,fromLogin=false,expectedStaffId=""){
+  if(!file)throw new Error('Choose a staff profile invitation or staff backup TXT file.');
+  const text=await file.text();
+  let obj;
+  if(file.name.toLowerCase().endsWith('.json')||text.trimStart().startsWith('{')) obj=JSON.parse(text);
+  else if(text.includes('BEGIN HEARTLINE STAFF PROFILE DATA V2')) obj=await parseStructuredSection(text,'--- BEGIN HEARTLINE STAFF PROFILE DATA V2 ---','--- END HEARTLINE STAFF PROFILE DATA V2 ---');
+  else if(text.includes('BEGIN HEARTLINE STAFF PROFILE DATA V1')) obj=await parseStructuredSection(text,'--- BEGIN HEARTLINE STAFF PROFILE DATA V1 ---','--- END HEARTLINE STAFF PROFILE DATA V1 ---');
+  else if(text.includes('BEGIN HEARTLINE STAFF BACKUP DATA V2')) obj=await parseStructuredSection(text,'--- BEGIN HEARTLINE STAFF BACKUP DATA V2 ---','--- END HEARTLINE STAFF BACKUP DATA V2 ---');
+  else if(text.includes('BEGIN HEARTLINE STAFF BACKUP DATA V1')) obj=await parseStructuredSection(text,'--- BEGIN HEARTLINE STAFF BACKUP DATA V1 ---','--- END HEARTLINE STAFF BACKUP DATA V1 ---');
+  else throw new Error('This file is not a supported staff profile or staff backup.');
+  if(obj.format==='HeartlineStaffProfile'&&[1,2].includes(Number(obj.version))&&obj.profile?.id&&obj.profile?.name){
+    const profile={...obj.profile};const profileCheck=AFManagementCore.validateProfile(profile);if(!profileCheck.valid)throw new Error(`Invalid staff profile: ${profileCheck.reason}`);const ix=staffProfiles.findIndex(x=>x.id===profile.id);const local=ix>=0?staffProfiles[ix]:null;
+    if(local){const decision=AFManagementCore.compareProfileVersions(local,profile);if(decision.decision==='stale')throw new Error('This staff profile file is older than the profile already on this device. It cannot replace the newer local profile.');if(decision.decision==='same'){if(local.active===false)throw new Error('This staff profile is locally marked inactive. Contact the doctor for an updated profile.');profile.active=local.active;staffProfiles[ix]=local;}else{if(decision.decision==='legacy-confirm'||decision.decision==='conflict'){if(!confirm(`This profile file has no reliable revision history (${decision.reason}). Replace the local profile ${local.name}?`))throw new Error('Profile update cancelled.');}staffProfiles[ix]=profile;}}else staffProfiles.push(profile);
+    if(!saveStaffProfiles())throw new Error('Could not save this staff profile on the device. Check available storage.');refreshStaffLoginOptions();$('staffProfileSelect').value=profile.active===false?'':profile.id;
+    if(profile.active===false)throw new Error('This staff profile is marked inactive. Please contact the doctor.');
+    if(fromLogin)alert(`Profile imported: ${profile.name}. Select the profile and Continue.`);
+    return {type:'profile',profile};
+  }
+  if(obj.format==='HeartlineStaffBackup'&&[1,2].includes(Number(obj.version))&&obj.staffProfile?.id&&Array.isArray(obj.records)){
+    if(expectedStaffId&&obj.staffProfile.id!==expectedStaffId)throw new Error('This backup belongs to a different staff profile. Restore only your own backup.');
+    const profileCheck=AFManagementCore.validateProfile(obj.staffProfile);if(!profileCheck.valid)throw new Error(`Staff backup profile is invalid: ${profileCheck.reason}`);
+    const seenIds=new Set();for(const r of obj.records){const check=AFManagementCore.validateRecord(r);if(!check.valid)throw new Error(`Staff backup contains an invalid record: ${check.reason}`);if(seenIds.has(r.id))throw new Error('Staff backup contains duplicate record IDs.');seenIds.add(r.id);if(r.enteredById&&r.enteredById!==obj.staffProfile.id)throw new Error('Staff backup contains a record owned by a different staff profile. Nothing was restored.');}
+    if(obj.treatmentDrafts!==undefined&&!AFManagementCore.validateDraftMap(obj.treatmentDrafts))throw new Error('Staff backup contains invalid treatment drafts.');
+    if(obj.entryDraft!==undefined&&!AFManagementCore.validateWizardDraft(obj.entryDraft))throw new Error('Staff backup contains an invalid patient-entry draft.');
+    if(obj.auditTrail!==undefined&&!AFManagementCore.validateAuditTrail(obj.auditTrail))throw new Error('Staff backup contains invalid audit history.');
+    if(obj.weeklyBackupState!==undefined&&!AFManagementCore.validateWeeklyState(obj.weeklyBackupState))throw new Error('Staff backup contains invalid backup metadata.');
+    const profile={...obj.staffProfile};const ix=staffProfiles.findIndex(x=>x.id===profile.id);const local=ix>=0?staffProfiles[ix]:null;
+    if(local){const decision=AFManagementCore.compareProfileVersions(local,profile);if(decision.decision==='stale')throw new Error('This staff backup contains an older profile and cannot overwrite the newer local profile.');if(decision.decision==='same'){profile.active=local.active;staffProfiles[ix]=local;}else{if(decision.decision==='legacy-confirm'||decision.decision==='conflict'){if(!confirm(`This staff backup profile has incomplete revision data. Replace the local profile ${local.name}?`))throw new Error('Staff profile restore cancelled.');}staffProfiles[ix]=profile;}}else staffProfiles.push(profile);
+    if(profile.active===false)throw new Error('This backup belongs to a staff profile marked inactive. Contact the doctor before restoring.');
+    const merge=mergeIncomingRecords(records,obj.records,'staff-backup');records=merge.records;
+    if(obj.treatmentDrafts&&typeof obj.treatmentDrafts==='object')treatmentDrafts={...treatmentDrafts,...obj.treatmentDrafts};
+    if(obj.entryDraft){wizardDrafts[`staff:${profile.id}`]=obj.entryDraft;persistWizardDrafts();}
+    if(Array.isArray(obj.auditTrail))auditTrail=[...auditTrail,...obj.auditTrail];
+    if(!saveStaffProfiles()||!save())throw new Error('Could not save restored staff data. Check device storage.');
+    weeklyBackupState[`staff:${profile.id}`]={lastBackupAt:obj.backedUpAt||null,restoredAt:new Date().toISOString()};saveWeeklyBackupState();
+    refreshStaffLoginOptions();$('staffProfileSelect').value=profile.id;
+    if(fromLogin)alert(`Staff backup restored for ${profile.name}: ${obj.records.length} patient records imported. Select the profile and Continue.`);
+    return {type:'backup',profile,records:obj.records.length};
+  }
+  throw new Error('Unsupported staff setup file.');
+}
+function makeStaffBackup(){
+  if(user.role!=='staff'||!user.staffProfile)throw new Error('Staff profile is not available.');
+  const own=records.filter(canAccessRecord);const ownIds=new Set(own.map(r=>r.id));
+  const ownDrafts={};ownIds.forEach(id=>{if(treatmentDrafts[id])ownDrafts[id]=treatmentDrafts[id];});
+  const ownAudit=auditTrail.filter(a=>(a.recordId&&ownIds.has(a.recordId))||normalizedStaffName(a.by)===normalizedStaffName(user.name));
+  return {format:'HeartlineStaffBackup',version:2,appVersion:'1.9',backedUpAt:new Date().toISOString(),staffProfile:JSON.parse(JSON.stringify(user.staffProfile)),records:JSON.parse(JSON.stringify(own)),treatmentDrafts:JSON.parse(JSON.stringify(ownDrafts)),entryDraft:JSON.parse(JSON.stringify(wizardDrafts[`staff:${user.staffId}`]||null)),auditTrail:JSON.parse(JSON.stringify(ownAudit)),weeklyBackupState:JSON.parse(JSON.stringify({[`staff:${user.staffId}`]:weeklyBackupState[`staff:${user.staffId}`]||{}}))};
+}
+async function buildStaffBackupText(obj){
+  const lines=['HEARTLINE HEALTHCARE LLP — AF MANAGEMENT','STAFF COMPLETE BACKUP FILE (RESTORABLE TXT)','Keep this file intact. It contains this staff profile and the staff member’s patient data.','',`Staff: ${obj.staffProfile.name}`,`Staff ID: ${obj.staffProfile.id}`,`Backup date: ${new Date(obj.backedUpAt).toLocaleString()}`,`Patient records included: ${obj.records.length}`,'','--- BEGIN HEARTLINE STAFF BACKUP DATA V2 ---',await encodeTransferPayload(obj),'--- END HEARTLINE STAFF BACKUP DATA V2 ---',''];
+  return lines.join('\n');
+}
+async function exportStaffBackup(isWeekly=false){
+  if(user.role!=='staff')return false;
+  try{const obj=makeStaffBackup();const filename=`Heartline_Staff_Backup_${user.staffId||'Profile'}_${uniqueFileStamp()}.txt`;const result=downloadBlob(filename,await buildStaffBackupText(obj),'text/plain;charset=utf-8');const confirmed=confirmBackupSaved(filename,result.size);if(confirmed&&!isWeekly)alert(`Your staff backup file is ready: ${filename}. Keep it outside the PWA.`);return confirmed;}catch(error){alert(`Staff backup could not be generated: ${error.message||error}`);return false;}
+}
+function restoreStaffBackup(file){
+  importStaffSetupFile(file,false,user.staffId).then(result=>{if(result.type!=='backup')throw new Error('Selected file is a staff profile invitation, not a complete staff backup.');$('staffRestoreFile').value='';render();alert(`Restored ${result.records} patient records and profile ${result.profile.name}.`);}).catch(e=>alert('Staff restore failed: '+e.message));
+}
+function createStaffProfile(){
+  if(user.role!=='doctor')return;
+  const name=$('newStaffName').value.trim().replace(/\s+/g,' ');if(!name)return alert('Enter the staff member’s name.');
+  if(staffProfiles.some(p=>normalizedStaffName(p.name)===normalizedStaffName(name)&&p.active!==false))return alert('An active profile with this name already exists.');
+  const now=new Date().toISOString();const profile={id:makeStaffId(),name,role:'staff',active:true,revision:1,updatedAt:now,assignedBy:DEFAULT_DOCTOR_NAME,createdAt:now,importedAt:now};
+  staffProfiles.push(profile);if(!saveStaffProfiles()){staffProfiles.pop();return;}$('newStaffName').value='';renderStaffProfiles();shareStaffProfile(profile);
+}
+function weeklyBackupHtmlIncludes(){return user.role==='doctor'?'<ul><li>All patient records on this device</li><li>All staff profiles</li><li>Treatment orders, favourites and audit history</li></ul>':'<ul><li>Your staff profile</li><li>Your patient records and approved treatment updates</li><li>Your checklists and saved data</li></ul>';}
+function showWeeklyBackupGate(){
+  if(!user.role||!isWeeklyBackupDue())return;
+  backupLockActive=true;document.body.classList.add('backup-locked');
+  $('weeklyBackupGate').classList.remove('hidden');
+  $('weeklyBackupMessage').textContent=user.role==='doctor'?'Your complete Doctor Mode backup is overdue. Generate the full database backup to unlock the app.':'Your complete staff backup is overdue. Generate your profile and patient backup to unlock the app.';
+  $('weeklyBackupIncludes').innerHTML=weeklyBackupHtmlIncludes();
+  $('weeklyBackupLast').textContent=`Last backup: ${weeklyBackupDueText()}. Weekly backup is required every 7 days.`;
+  $('weeklyEmergencyContacts').classList.toggle('hidden',user.role!=='staff');
+  $('takeWeeklyBackup').textContent=user.role==='doctor'?'Click here to take the full Doctor backup':'Click here to take your Staff backup';
+}
+async function createMandatoryWeeklyBackup(){
+  if(!backupLockActive)return;
+  if(user.role==='doctor')exportAllJson({weekly:true});
+  else await exportStaffBackup(true);
+}
+function renderBackupMeta(){const text=`Last successful backup generation: ${weeklyBackupDueText()}`;const el=$('backupMeta');if(el)el.textContent=text;const staffEl=$('staffBackupMeta');if(staffEl)staffEl.textContent=text;}
+
 function updateLoginRoleUI(){
   const isDoctor=$('role').value==='doctor';
-  $('nameLabel').classList.toggle('hidden',isDoctor);
-  $('name').value=isDoctor?DEFAULT_DOCTOR_NAME:'';
+  $('doctorLoginNote').classList.toggle('hidden',!isDoctor);
+  $('staffLoginPanel').classList.toggle('hidden',isDoctor);
+  $('staffAdminTab').classList.toggle('hidden',!isDoctor);
+  refreshStaffLoginOptions();
 }
 $('role').addEventListener('change',updateLoginRoleUI);
 updateLoginRoleUI();
+$('importStaffSetup').onclick=async()=>{
+  try{const result=await importStaffSetupFile($('staffSetupFile').files[0],true);$('staffSetupFile').value='';if(result.type==='backup')$('staffProfileSelect').value=result.profile.id;}
+  catch(e){alert('Import failed: '+e.message);}
+};
 $('enter').onclick=()=>{
   const role=$('role').value;
-  const name=role==='doctor'?DEFAULT_DOCTOR_NAME:$('name').value.trim().replace(/\s+/g,' ');
-  if(role==='staff'&&!name)return alert('Enter your staff name to open your patient workspace.');
-  user={role,name,language:role==='doctor'?'english':'hinglish'};
+  if(role==='doctor') user={role:'doctor',name:DEFAULT_DOCTOR_NAME,language:'english',staffId:'',staffProfile:null};
+  else {
+    const profile=staffProfiles.find(p=>p.id===$('staffProfileSelect').value&&p.active!==false);
+    if(!profile)return alert('Import your staff profile file or your previous staff backup, then select your profile.');
+    user={role:'staff',name:profile.name,language:'hinglish',staffId:profile.id,staffProfile:profile};
+  }
   $('login').classList.add('hidden');$('app').classList.remove('hidden');
   $('hello').textContent=role==='doctor'?`${DEFAULT_DOCTOR_NAME} · Doctor Mode · English`:`${user.name} · Staff Mode · Hinglish`;
   $('calc').textContent=role==='staff'?'Show simple staff assessment':'Calculate initial assessment';
@@ -991,24 +1245,31 @@ $('enter').onclick=()=>{
   $('new').classList.toggle('hidden',role!=='staff');
   document.querySelector('[data-tab="form"]').classList.toggle('hidden',role!=='staff');
   $('doctorBackup').classList.toggle('hidden',role!=='doctor');
+  $('staffBackupPanel').classList.toggle('hidden',role!=='staff');
   $('staffEmergencyContacts').classList.toggle('hidden',role!=='staff');
+  $('staffAdminTab').classList.toggle('hidden',role!=='doctor');
   setWizardStep(1);
   $('recordDetail').innerHTML='';activeRecordId=null;
   renderStaffLiveGuidance();render();
+  if(role==='staff'&&resumeWizardDraft())alert('Your unfinished patient entry has been restored. Continue from the saved step.');
+  if(navigator.storage?.persist){navigator.storage.persist().catch(()=>{});}
+  getBackupState();renderBackupMeta();showWeeklyBackupGate();
 };
-$('switch').onclick=()=>{user={role:'',name:'',language:'english'};editingRecordId=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('role').value='doctor';updateLoginRoleUI()};
+$('switch').onclick=()=>{user={role:'',name:'',language:'english',staffId:'',staffProfile:null};backupLockActive=false;document.body.classList.remove('backup-locked');$('weeklyBackupGate').classList.add('hidden');editingRecordId=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('role').value='doctor';updateLoginRoleUI()};
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
 $('wizardNext').onclick=()=>{if(!wizardPageIsValid(wizardCurrentStep)){updateWizardControls();const first=[...$(`wizardPage${wizardCurrentStep}`).querySelectorAll('input[required],select[required],textarea[required]')].find(el=>!el.checkValidity());first?.reportValidity();return;}setWizardStep(wizardCurrentStep+1);};
 $('wizardBack').onclick=()=>setWizardStep(wizardCurrentStep-1);
-$('patientForm').addEventListener('input',()=>{updateWizardControls();if(wizardCurrentStep===3)renderRiskScoreSummary();if(wizardCurrentStep===4)renderWizardFinalPage();});
-$('patientForm').addEventListener('change',()=>{updateWizardControls();if(wizardCurrentStep===3)renderRiskScoreSummary();if(wizardCurrentStep===4)renderWizardFinalPage();});
+$('patientForm').addEventListener('input',()=>{updateWizardControls();if(user.role==='staff')saveWizardDraft();if(wizardCurrentStep===3)renderRiskScoreSummary();if(wizardCurrentStep===4)renderWizardFinalPage();});
+$('patientForm').addEventListener('change',()=>{updateWizardControls();if(user.role==='staff')saveWizardDraft();if(wizardCurrentStep===3)renderRiskScoreSummary();if(wizardCurrentStep===4)renderWizardFinalPage();});
+window.addEventListener('beforeunload',()=>{if(user.role==='staff'&&wizardCurrentStep>=1)saveWizardDraft();});
 $('records').addEventListener('click',event=>{const button=event.target.closest('button[data-id]');if(button){openRecord(button.dataset.id);return;}if(event.target.closest('#openImport'))tab('transfer');});
 $('new').onclick=()=>{
   if(user.role!=='staff')return alert('Only staff can create a patient submission.');
+  if(user.role==='staff'){const key=currentWizardDraftKey();if(key&&wizardDrafts[key]){if(!confirm('An unfinished entry is saved. Starting a new patient will discard that unfinished draft. Continue?'))return;clearWizardDraft();}}
   editingRecordId=null; $('patientForm').reset();setWizardStep(1);updateAutoScore();updateHemoScreen();
   $('formTitle').textContent='Patient assessment';$('submitPatient').textContent='Submit for doctor review';$('cancelEdit').classList.add('hidden');
   $('assessed').value=new Date().toISOString().slice(0,16);
-  $('result').classList.add('hidden');setWizardStep(1);tab('form');
+  $('result').classList.add('hidden');setWizardStep(1);if(user.role==='staff')saveWizardDraft();tab('form');
 };
 $('cancelEdit').onclick=cancelPatientEdit;
 $('age').addEventListener('input',updateAutoScore);
@@ -1031,16 +1292,18 @@ $('patientForm').onsubmit=e=>{
   if(!validateAllWizardPages())return;
   if(!p.duration)return alert('AF duration is required.');
   const now=new Date().toISOString();
-  if(user.role==='doctor') {
-    if(!editingRecordId)return alert('Doctor Mode can edit an existing record only.');
-    const r=records.find(x=>x.id===editingRecordId); if(!r)return alert('Patient record not found.');
-    r.patient=p;r.updatedAt=now;r.history=r.history||[];r.history.push({event:'Patient details edited by doctor',by:DEFAULT_DOCTOR_NAME,at:now});
-    auditTrail.push({event:'Patient record edited',recordId:r.id,by:DEFAULT_DOCTOR_NAME,at:now});
-    const id=r.id;editingRecordId=null;save();$('cancelEdit').classList.add('hidden');$('formTitle').textContent='Patient assessment';$('submitPatient').textContent='Submit for doctor review';tab('list');openRecord(id);alert('Patient details updated. Existing doctor-approved orders remain attached; please review them after editing.');return;
+  if(editingRecordId) {
+    const r=records.find(x=>x.id===editingRecordId);if(!r)return alert('Patient record not found.');
+    if(user.role==='staff'&&(!canAccessRecord(r)||r.status!=='Pending review'))return alert('Staff can edit only their own pending records.');
+    if(user.role==='doctor')invalidateApprovedPlanAfterClinicalEdit(r,now);
+    r.patient=p;bumpRecordRevision(r,now);r.history=r.history||[];r.history.push({event:user.role==='doctor'?'Patient details edited by doctor':'Pending patient details corrected by staff',by:user.name,at:now});
+    auditTrail.push({event:'Patient record edited',recordId:r.id,by:user.name,at:now});const id=r.id;editingRecordId=null;clearWizardDraft();
+    if(!save())return;$('cancelEdit').classList.add('hidden');$('formTitle').textContent='Patient assessment';$('submitPatient').textContent='Submit for doctor review';tab('list');openRecord(id);
+    alert(user.role==='doctor'?'Patient details updated. Any previously approved plan has been marked as needing re-approval.':'Your pending patient entry has been updated and remains pending doctor review.');return;
   }
   if(user.role!=='staff')return alert('Only staff can submit records.');
-  const r={id:makeRecordId(),patient:p,status:'Pending review',by:user.name,enteredBy:user.name,createdAt:now,updatedAt:now,history:[{event:'Submitted',by:user.name,at:now}]};
-  records.push(r);auditTrail.push({event:'Patient record created',recordId:r.id,by:user.name,at:now});save();alert('Patient assessment saved. Open Patient transfer and choose Share via WhatsApp to send the TXT transfer file to the doctor.');tab('list');
+  const r={id:makeRecordId(),patient:p,status:'Pending review',by:user.name,enteredBy:user.name,enteredById:user.staffId||'',createdAt:now,updatedAt:now,revision:1,planRevision:0,history:[{event:'Submitted',by:user.name,at:now}]};
+  records.push(r);auditTrail.push({event:'Patient record created',recordId:r.id,by:user.name,at:now});clearWizardDraft();if(!save())return;alert('Patient assessment saved. Open Patient transfer and choose Share via WhatsApp to send the TXT transfer file to the doctor.');tab('list');
 };
 $('download').onclick=()=>{const r=visibleRecords().find(x=>x.id===$('choose').value);if(r)exportR(r);else alert('Select one of your available patient records.')};
 $('whatsapp').onclick=()=>{
@@ -1050,7 +1313,7 @@ $('whatsapp').onclick=()=>{
 };
 $('print').onclick=()=>{
   const r=visibleRecords().find(x=>x.id===$('choose').value);if(!r)return alert('Select one of your available patient records.');
-  const w=window.open('','_blank'),d=advice(r.patient);
+  const w=window.open('','_blank');if(!w){alert('The print window was blocked. Allow pop-ups for this PWA, then try again.');return;}const d=advice(r.patient);
   if(user.role==='staff') {
     const sh=staffAssessment(r.patient);
     w.document.write(`<h1>Heartline Healthcare LLP</h1><h2>AF Staff Assessment</h2><p>Patient: ${esc(r.patient.pName)} · UHID: ${esc(r.patient.uhid)} · Age: ${esc(r.patient.age)}</p><p>HR: ${esc(r.patient.hr)} · BP: ${esc(r.patient.sbp)}/${esc(r.patient.dbp)} · SpO₂: ${esc(r.patient.spo2)}</p><p><b>${esc(sh.priority)}</b></p><p><b>Automatic screen:</b> ${esc(sh.h.label)}</p>${sh.focusedGuidance?`<div>${sh.focusedGuidance}</div>`:''}<h3>Staff preparation checklist</h3><ul>${sh.tasks.map(t=>`<li><b>${esc(t[0])}:</b> ${esc(t[1])}</li>`).join('')}</ul><small>Staff view: medication and treatment decisions remain doctor-only.</small><script>window.print()<\/script>`);
@@ -1060,6 +1323,10 @@ $('print').onclick=()=>{
   }
   w.document.close();
 };
+$('createStaffProfile').onclick=createStaffProfile;
+$('staffBackupNow').onclick=()=>exportStaffBackup(false);
+$('restoreStaffBackup').onclick=()=>{if(user.role!=='staff')return;restoreStaffBackup($('staffRestoreFile').files[0]);};
+$('takeWeeklyBackup').onclick=createMandatoryWeeklyBackup;
 $('backupJson').onclick=()=>{if(user.role==='doctor')exportAllJson();};
 $('backupText').onclick=()=>{if(user.role==='doctor')exportAllText();};
 $('backupPdf').onclick=()=>{if(user.role==='doctor')exportAllPdf();};
@@ -1073,17 +1340,46 @@ $('import').onclick=async()=>{
   const f=$('file').files[0];if(!f)return alert('Choose the TXT transfer file downloaded from WhatsApp. Older JSON patient handover files are also supported.');
   try{
     const o=await parsePatientTransferFile(f),r=o.record;
-    if(o.format!=='HeartlineAFTransfer'||!r?.id||!r.patient)throw Error('Invalid patient transfer file. For a full database backup, use Doctor → Restore complete JSON backup.');
+    if(o.format!=='HeartlineAFTransfer'||![1,2].includes(Number(o.version))||!['patient-handover','doctor-approved-plan'].includes(o.transferType)||!AFManagementCore.validateRecord(r).valid)throw Error('Invalid patient transfer file or unsupported format version. Nothing was imported.');
     const doctorApprovedUpdate=o.transferType==='doctor-approved-plan'&&r.status==='Approved'&&r.approvedBy===DEFAULT_DOCTOR_NAME;
-    if(user.role==='staff' && normalizedStaffName(recordOwner(r))!==normalizedStaffName(user.name)) throw Error('This file belongs to another staff member. Staff can import only their own patient records.');
+    if(user.role==='staff' && (r.enteredById ? r.enteredById!==user.staffId : normalizedStaffName(recordOwner(r))!==normalizedStaffName(user.name))) throw Error('This file belongs to another staff member. Staff can import only their own patient records.');
     if(user.role==='staff' && r.status==='Approved' && !doctorApprovedUpdate) throw Error('Only a doctor-approved plan transfer can update an approved staff record.');
     const i=records.findIndex(x=>x.id===r.id);
-    if(i>=0&&records[i].status==='Approved'&&user.role!=='doctor'&&!doctorApprovedUpdate)throw Error('Staff cannot overwrite an approved record unless it is a doctor-approved plan update.');
-    if(i>=0)records[i]=r;else records.push(r);
-    save();tab('list');if(user.role==='doctor')openRecord(r.id);else if(doctorApprovedUpdate)openRecord(r.id);
-    alert(doctorApprovedUpdate?'Doctor-approved treatment file imported. Check the orders and preparation checklist.':'Patient transfer file imported. Confirm patient identity and review the record.');
+    if(i>=0){
+      const local=records[i];
+      if(user.role==='staff'&&doctorApprovedUpdate){const verdict=planVersionDecision(local,r);if(verdict.decision==='stale'||verdict.decision==='same')throw Error('This treatment-plan file is older than or identical to the plan already on this phone. The newer plan has been kept.');if(verdict.decision!=='newer'&&!confirm(`This is a legacy plan file without reliable plan revision information (${verdict.reason}). Import it anyway?`))throw Error('Import cancelled to protect the current plan.');}
+      else {const verdict=recordVersionDecision(local,r);if(verdict.decision==='stale'||verdict.decision==='same')throw Error(`This file is older than or identical to the local record (${verdict.reason}). No overwrite was made.`);if(user.role==='staff'&&local.status==='Approved')throw Error('Staff cannot replace an approved record with a patient handover.');if(verdict.decision!=='newer'&&!confirm(`Record version cannot be safely compared (${verdict.reason}). Replace the local record with this incoming file?`))throw Error('Import cancelled.');if(user.role==='doctor'&&local.status==='Approved'&&!confirm('This will replace an existing doctor-approved record. Continue?'))throw Error('Doctor import cancelled.');}
+    }
+    if(i>=0&&doctorApprovedUpdate){const local=records[i];const carryChecklist=Number(local.planRevision||0)===Number(r.planRevision||0)?local.staffChecklistDone:[];records[i]=JSON.parse(JSON.stringify(r));records[i].staffChecklistDone=carryChecklist||[];}
+    else if(i>=0){const local=records[i],incoming=JSON.parse(JSON.stringify(r));if(JSON.stringify(local.patient)!==JSON.stringify(incoming.patient)&&(local.status==='Approved'||incoming.status==='Approved')){incoming.status='Needs re-approval';incoming.planNeedsReapproval=true;incoming.planOutdatedAt=new Date().toISOString();}records[i]=incoming;}else records.push(JSON.parse(JSON.stringify(r)));
+    if(!records[i>=0?i:records.length-1].revision)records[i>=0?i:records.length-1].revision=1;
+    if(!records[i>=0?i:records.length-1].updatedAt)records[i>=0?i:records.length-1].updatedAt=records[i>=0?i:records.length-1].createdAt||new Date().toISOString();
+    if(!save())throw Error('The file was read, but local storage could not save the imported record. Check device storage and retry.');
+    tab('list');if(user.role==='doctor'||doctorApprovedUpdate)openRecord(r.id);
+    alert(doctorApprovedUpdate?`Doctor-approved treatment plan revision ${r.planRevision||'legacy'} imported. Confirm the approval time and review the checklist.`:'Patient transfer file imported. Confirm patient identity and review the record.');
   }catch(e){alert('Import failed: '+e.message);}
 };
 ['sbp','dbp','spo2'].forEach(id=>$(id).addEventListener('input',updateHemoScreen));
 document.querySelectorAll('[name=inst]').forEach(el=>el.addEventListener('change',updateHemoScreen));
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+setInterval(()=>{if(user.role&&!backupLockActive&&isWeeklyBackupDue())showWeeklyBackupGate();},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user.role&&!backupLockActive&&isWeeklyBackupDue())showWeeklyBackupGate();});
+
+
+// Cross-tab safety: reload newer local records rather than silently keeping a stale array.
+window.addEventListener('storage',event=>{
+  if(event.key==='hl_af_v1'&&event.newValue!==null&&event.newValue!==lastSeenRecordsRaw){
+    try{const parsed=JSON.parse(event.newValue);if(!Array.isArray(parsed))throw new Error('');records=parsed.filter(r=>r&&r.id&&r.patient);lastSeenRecordsRaw=event.newValue;render();if(activeRecordId&&records.some(r=>r.id===activeRecordId))openRecord(activeRecordId);alert('Patient data changed in another AF Management tab. The latest list has been loaded. Recheck the open record before saving.');}catch(error){alert('Another tab changed patient data, but the update could not be read. Reload this page before continuing.');}
+  }
+  if(event.key==='hl_af_staff_profiles_v1'&&event.newValue){try{const parsed=JSON.parse(event.newValue);if(Array.isArray(parsed)){staffProfiles=parsed;refreshStaffLoginOptions();renderStaffProfiles();}}catch(e){}}
+  if(event.key==='hl_af_weekly_backup_v1'&&event.newValue){try{weeklyBackupState=JSON.parse(event.newValue)||{};renderBackupMeta();}catch(e){}}
+});
+
+// PWA update notice: new service worker takes control without silently discarding the current screen.
+if('serviceWorker' in navigator){
+  let hadController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController){$('appUpdateBanner')?.classList.remove('hidden');}else hadController=true;});
+  window.addEventListener('load',()=>navigator.serviceWorker.getRegistration().then(reg=>reg?.update()).catch(()=>{}));
+}
+$('reloadApp')?.addEventListener('click',()=>location.reload());

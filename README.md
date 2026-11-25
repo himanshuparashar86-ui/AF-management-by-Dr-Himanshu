@@ -1,6 +1,8 @@
 # AF Management by Dr. Himanshu Parashar — Heartline Healthcare LLP
 
-Free, mobile-first Progressive Web App prototype (v1.7).
+Free, mobile-first Progressive Web App prototype (v1.9).
+
+Run the reproducible test suite from the project root with `./tests/run_tests.sh`. See `TEST_REPORT_v1.9.md` and `tests/README.md` for coverage and limitations.
 
 ## v1.1 changes
 - Doctor Mode opens with the fixed profile **Dr. Himanshu Parashar** and English. Doctor name and language are not asked repeatedly.
@@ -93,7 +95,7 @@ All v1.4 features remain included.
 - The approved-plan action is now labelled **Share approved plan via WhatsApp**.
 - In v1.6, mobile file sharing used JSON. Version 1.7 replaces routine handovers with a readable TXT transfer file.
 - In v1.6, desktop browsers downloaded JSON for manual attachment. Version 1.7 uses TXT for routine transfer.
-- WhatsApp messages include a patient/record reference and, for doctor-approved updates, the approved order summary. The current v1.7 TXT attachment carries the structured patient transfer data.
+- WhatsApp messages include a patient/record reference and, for doctor-approved updates, the approved order summary. The current v1.8 TXT attachment carries the structured patient transfer data.
 - The previous “Sharing unavailable” failure message has been removed. The app now gives an on-screen status and a direct Open WhatsApp link if the browser blocks the new tab.
 
 **Browser limitation:** WhatsApp Web does not allow a website to silently attach a local file to a chat through a URL. On desktop the TXT file must be attached by the user after WhatsApp opens. On supported mobile devices, the native share sheet can pass the TXT file to WhatsApp.
@@ -108,3 +110,62 @@ All v1.4 features remain included.
 - This version does not alter medication-dose formulas or prescribing defaults.
 
 **Sharing limitation:** A website cannot silently attach a downloaded local file to WhatsApp Web. Desktop users must attach the TXT file manually after WhatsApp opens. On supported mobile browsers, select WhatsApp in the native share menu.
+
+
+## v1.8 offline staff profiles and weekly backup
+- Doctor Mode → Manage Staff: create named staff profiles and share each profile invitation TXT through WhatsApp.
+- Staff imports the invitation file once on their own installed PWA, then selects the imported profile at login.
+- Staff patient records are associated with the profile ID. Staff sees records belonging to the selected profile; Doctor sees all records stored on that device.
+- Staff Mode → Transfer / Backup: generate and restore a complete staff backup TXT containing the profile and its patient records. On a newly installed PWA, the same staff backup restores the profile and records.
+- Doctor full JSON backup includes all local staff profiles and patient records.
+- A weekly backup gate locks normal app use after seven days without a generated backup. Doctor generates a full JSON backup; Staff generates a complete staff TXT backup. Emergency contact links remain visible on the Staff backup gate.
+- No cloud database or automatic device sync. Share profile invitations, patient handovers, doctor-approved treatment updates and backup files manually through WhatsApp or another approved transfer channel.
+
+### Offline / privacy notes
+The PWA can work offline after the first successful load and service-worker caching. Internet is needed only for WhatsApp or other file transfer. The staff name/profile filter is a convenience feature, not secure authentication. Invitation and backup files contain patient or staff information and are not encrypted in this prototype. The weekly backup gate confirms that a browser download was triggered; it cannot verify off-device storage.
+
+
+## v1.9 — technical reliability and import safety (clinical logic unchanged)
+
+This release implements technical corrections from the independent static review. It does not change clinical calculations, dose formulas, clinical thresholds, medication options, or clinical pathway wording. The items awaiting the cardiologist/pharmacy decision are listed separately in `CLINICAL_DECISIONS_PENDING.md` and are not implemented.
+
+### Import, revision and approval safety
+- Patient records and staff profiles carry revision/timestamp metadata. Incoming files are compared against local revisions; stale files are rejected instead of silently replacing newer records.
+- Equal-revision/legacy conflicts and replacement of existing doctor-approved records require an explicit confirmation.
+- Treatment-plan revisions and approval timestamps are retained and displayed to staff.
+- A clinical-data edit after approval changes the record to `Needs re-approval`. Staff are warned not to follow the previous plan until the doctor approves and shares an updated plan.
+- Doctor editing of an already approved record increments its revision. Staff checklist updates and approval actions also increment record revision metadata.
+
+### Backups and draft recovery
+- Weekly backup completion now requires a visible-file confirmation after the download is triggered. Cancel/retry leaves the weekly gate locked. The app cannot independently verify that the file was stored in a separate safe location.
+- Backup filenames include a unique suffix to avoid same-day collisions.
+- Patient-entry drafts are saved as staff types and can be resumed after the PWA is closed/reloaded, including a pending-record correction draft.
+- Restore validates record/profile structure, detects duplicate record IDs, previews conflicts through confirmation, and preserves newer/inactive profile state against older files.
+- Staff backup excludes the doctor's favourite regimens and unrelated records.
+
+### PWA/storage reliability
+- Service worker is cache-first with a bounded 4.5-second background network refresh and cached navigation fallback.
+- A version-update banner is shown when the new service worker takes control.
+- Added 192 px and 512 px PNG icons and an Apple touch icon.
+- App requests persistent browser storage where supported.
+- Local storage write/quota failures are surfaced. Cross-tab record changes reload the latest local list rather than silently saving over a newer whole-array snapshot.
+- Print popup blocking is handled with a visible message.
+
+### WhatsApp transfer privacy and validation
+- Routine TXT transfers include a versioned structured payload with a SHA-256 integrity checksum. The checksum detects accidental corruption/tampering but is not sender authentication or encryption.
+- Legacy v1 TXT transfers and supported legacy single-patient JSON handovers remain accepted where applicable.
+- WhatsApp message text is reduced to the record reference and plan revision; patient demographics and vitals remain in the attached TXT file.
+
+### Testing and release evidence
+- Reproducible test scripts are in `tests/`.
+- Run `tests/run_tests.sh` for syntax, unit and static regression tests.
+- Run `tests/browser_smoke.py` for Chromium browser smoke tests (requires Python Playwright and Chromium).
+- `TEST_REPORT_v1.9.md` describes the exact tests run, their limitations and items that still require real Android/iOS PWA testing.
+- The test suite fingerprints selected clinical functions against the supplied v1.8 source. They must remain unchanged unless the cardiologist explicitly approves a separate clinical change.
+
+### Known offline limitations
+- No cloud backend or automatic synchronisation is present. Staff and doctor devices exchange files manually.
+- A staff profile deactivation/permission update reaches another offline device only after the newer profile file is transferred and imported.
+- Local PIN/authentication is not introduced. Profile selection and file possession are not secure authentication. Staff backup files can expose their contents to anyone who obtains the file; transfer files are not encrypted.
+- A SHA-256 checksum is an integrity check, not a signature. A malicious person can edit a file and recompute the checksum.
+- The browser can confirm that a download was triggered and ask the user to verify the file in Downloads/Files, but cannot prove it was safely retained off-device.

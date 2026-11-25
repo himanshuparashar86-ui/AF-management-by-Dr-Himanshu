@@ -5,6 +5,8 @@
   <meta content="width=device-width,initial-scale=1" name="viewport"/>
   <meta content="#00646b" name="theme-color"/>
   <link href="manifest.webmanifest" rel="manifest"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
   <link href="styles.css" rel="stylesheet"/>
   <title>
    AF Management by Dr. Himanshu Parashar
@@ -39,10 +41,22 @@
       </option>
      </select>
     </label>
-    <label id="nameLabel">
-     Your name
-     <input autocomplete="name" id="name"/>
-    </label>
+    <div class="doctor-login-note" id="doctorLoginNote">
+     <b>Dr. Himanshu Parashar</b>
+     <small>Doctor Mode · English</small>
+    </div>
+    <div class="staff-login-panel hidden" id="staffLoginPanel">
+     <label>
+      Select your staff profile
+      <select id="staffProfileSelect"><option value="">No staff profile imported yet</option></select>
+     </label>
+     <label>
+      Import staff profile or restore your backup
+      <input accept=".txt,text/plain,.json,application/json" id="staffSetupFile" type="file"/>
+     </label>
+     <button class="light" id="importStaffSetup" type="button">Import profile / restore backup</button>
+     <p class="hint" id="staffLoginHint">Your doctor will share your staff profile file through WhatsApp. Import it once on this device.</p>
+    </div>
     <button id="enter">
      Continue
     </button>
@@ -68,6 +82,9 @@
      <button data-tab="transfer">
       Transfer / Backup
      </button>
+     <button class="hidden" data-tab="staffAdmin" id="staffAdminTab">
+      Manage Staff
+     </button>
     </nav>
     <section class="card" id="list">
      <div class="bar">
@@ -84,6 +101,17 @@
      </div>
      <div id="records">
      </div>
+    </section>
+    <section class="card hidden" id="staffAdmin">
+     <h3>Manage Staff Profiles</h3>
+     <p class="hint">Create staff profiles on this device, then share each profile invitation file with the staff member through WhatsApp. On an offline setup, profile changes must be shared manually.</p>
+     <div class="staff-profile-create grid">
+      <label>Staff full name *<input id="newStaffName" placeholder="e.g. Umed"/></label>
+      <div class="staff-profile-create-action"><button id="createStaffProfile" type="button">Create staff profile</button></div>
+     </div>
+     <div id="staffProfilesList"></div>
+     <p class="share-status hidden" id="staffProfileShareStatus" aria-live="polite"></p>
+     <p class="hint">A profile file is an identity/setup file, not a live remote account. Deactivating a profile here does not remotely disable a copy already imported on another device; share the updated inactive profile to apply that change there.</p>
     </section>
     <section class="card hidden" id="form">
      <h3 id="formTitle">
@@ -687,6 +715,7 @@
       <h3>
        Doctor — complete patient data backup
       </h3>
+      <p class="hint" id="backupMeta"></p>
       <p class="hint">
        Export all records currently stored on this device. PDF opens the print window; choose “Save as PDF”. JSON is the restorable full backup.
       </p>
@@ -727,15 +756,46 @@
        Keep a copy of the JSON backup outside this device. PDF and text files are readable exports, not restorable app backups.
       </p>
      </div>
+     <div class="doctor-backup hidden" id="staffBackupPanel">
+      <hr/>
+      <h3>Staff — My Complete Backup</h3>
+      <p class="hint" id="staffBackupMeta"></p>
+      <p class="hint">Creates a restorable TXT backup containing this staff profile, only this staff member’s patient records, saved checklists, local treatment drafts and relevant history.</p>
+      <div class="actions">
+       <button id="staffBackupNow" type="button">Backup my profile + patients · TXT</button>
+      </div>
+      <hr/>
+      <h4>Restore my staff backup</h4>
+      <label>Choose your staff backup TXT file<input accept=".txt,text/plain" id="staffRestoreFile" type="file"/></label>
+      <button class="light" id="restoreStaffBackup" type="button">Restore my backup</button>
+      <p class="hint">Keep this file outside the PWA (for example, in a secure device backup location). A staff backup can also restore the staff profile on a newly installed copy of this PWA.</p>
+     </div>
      <p class="hint">
-      Exported JSON and PDFs are not encrypted. Share patient data only through channels approved by your organisation.
+      Exported JSON and TXT backups contain identifiable patient information and are not encrypted in this prototype. Share only through organisation-approved channels and store securely.
      </p>
     </section>
    </section>
   </main>
+  <section class="weekly-backup-gate hidden" id="weeklyBackupGate" role="dialog" aria-modal="true" aria-labelledby="weeklyBackupTitle">
+   <div class="weekly-backup-card">
+    <div class="weekly-backup-icon">▣</div>
+    <h2 id="weeklyBackupTitle">Weekly Backup Required</h2>
+    <p id="weeklyBackupMessage">Your weekly backup is due. Generate your complete backup to continue using AF Management.</p>
+    <div class="weekly-backup-includes" id="weeklyBackupIncludes"></div>
+    <button class="weekly-backup-action" id="takeWeeklyBackup" type="button">Click here to take the backup</button>
+    <p class="hint" id="weeklyBackupLast">The app will remain locked until the backup file is generated.</p>
+    <div class="weekly-emergency hidden" id="weeklyEmergencyContacts">
+     <b>Emergency contacts remain available</b>
+     <a href="tel:9991125014">Dr. Himanshu Parashar · 9991125014</a>
+     <a href="tel:8901431430">Alternate contact · 8901431430</a>
+    </div>
+   </div>
+  </section>
+  <div class="app-update-banner hidden" id="appUpdateBanner" role="status"><span>A new AF Management version is ready.</span><button type="button" class="light" id="reloadApp">Reload now</button></div>
   <footer>
-   Heartline Healthcare LLP · Prototype v1.7 · ESC 2024 · TXT WhatsApp transfer
+   Heartline Healthcare LLP · Prototype v1.9 · ESC 2024 · Offline PWA · TXT WhatsApp transfer
   </footer>
+  <script src="core.js"></script>
   <script src="app.js">
   </script>
  </body>
